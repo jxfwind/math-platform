@@ -52,17 +52,17 @@
 
         <g v-if="animationType === 'age-multiple'" class="scene">
           <text x="200" y="30" text-anchor="middle" fill="#2c3e50" font-size="16" font-weight="bold">年龄倍数关系</text>
-          <g class="age-bars"></g><g class="age-labels"></g>
+          <g class="age-bars"></g><g class="age-labels"></g><g class="diff-arrow"></g>
         </g>
 
         <g v-if="animationType === 'age-sum'" class="scene">
           <text x="200" y="30" text-anchor="middle" fill="#2c3e50" font-size="16" font-weight="bold">年龄和</text>
-          <g class="age-circles"></g><g class="age-labels"></g>
+          <g class="age-bars"></g><g class="age-labels"></g><g class="diff-arrow"></g>
         </g>
 
         <g v-if="animationType === 'age-past'" class="scene">
           <text x="200" y="30" text-anchor="middle" fill="#2c3e50" font-size="16" font-weight="bold">几年前/后的年龄</text>
-          <g class="age-bars"></g><g class="age-labels"></g>
+          <g class="age-bars"></g><g class="age-labels"></g><g class="diff-arrow"></g>
         </g>
 
         <g v-if="animationType === 'difference-multiple'" class="scene">
@@ -276,34 +276,33 @@ const renderTreePlanting = async (step) => {
 }
 
 // 年龄问题 - 步骤驱动，与 explanation.steps 严格对应
+// step 从 1 开始，step=n 对应 steps[n-1]
 const renderAge = async (step) => {
   await nextTick()
   const scene = svgRef.value.querySelector('.scene')
   if (!scene) return
   const { q } = parseQuestion()
-  const steps = props.steps || []
-  
+
   // 解析人物名称
   const youngMatch = q.match(/(小明|小红|儿子|孙子|妹妹|弟弟)/)
   const oldMatch = q.match(/(妈妈|爸爸|爷爷|姐姐|哥哥)/)
   const youngName = youngMatch ? youngMatch[1] : '小孩'
   const oldName = oldMatch ? oldMatch[1] : '大人'
-  
+
   // 判断题型
   const isMultiple = q.includes('倍')
   const isSum = q.includes('和')
   const isPast = q.includes('几年前')
-  
+
   // 提取倍数
   const multipleMatch = q.match(/(\d+)倍/)
   const multiple = multipleMatch ? parseInt(multipleMatch[1]) : 3
-  
+
   // 提取目标年龄和（用于年龄和问题）
   const targetSumMatch = q.match(/和是(\d+)岁/)
   const targetSum = targetSumMatch ? parseInt(targetSumMatch[1]) : 30
-  
+
   // 从题目中提取年龄
-  const ageMatches = q.match(/(\d+)岁/g)
   let youngAge = 8, oldAge = 32
   const numsInQ = extractNumbers(q)
   if (numsInQ.length >= 2) {
@@ -311,11 +310,11 @@ const renderAge = async (step) => {
     oldAge = numsInQ[0]
     youngAge = numsInQ[1]
   }
-  
+
   const ageDiffValue = oldAge - youngAge
   const currentSum = youngAge + oldAge
   const targetYears = (targetSum - currentSum) / 2
-  
+
   // 计算倍数问题中的目标年龄
   const targetYoungAge = ageDiffValue / (multiple - 1)
   const targetOldAge = targetYoungAge * multiple
@@ -325,97 +324,217 @@ const renderAge = async (step) => {
   const labelsGroup = scene.querySelector('.age-labels')
   const diffArrowGroup = scene.querySelector('.diff-arrow')
 
-  // 步骤1：显示今年两个人的年龄（对应 steps[0]）
-  if (step >= 1) {
-    const bar1 = createSvgElement('rect', { x: 80, y: 200 - youngAge * 3, width: 60, height: youngAge * 3, fill: '#3498db', rx: 8 })
-    const bar2 = createSvgElement('rect', { x: 180, y: 200 - oldAge * 3, width: 60, height: oldAge * 3, fill: '#e91e63', rx: 8 })
-    barsGroup.appendChild(bar1)
-    barsGroup.appendChild(bar2)
-    gsap.fromTo([bar1, bar2], { scaleY: 0 }, { scaleY: 1, duration: 0.8, transformOrigin: 'bottom' })
-    addText(labelsGroup, 110, 220, `${youngName} ${youngAge}岁`, { fill: '#3498db', size: 12 })
-    addText(labelsGroup, 210, 220, `${oldName} ${oldAge}岁`, { fill: '#e91e63', size: 12 })
-  }
+  // 计算线段图缩放比例，确保最大年龄条不超过画布高度
+  const maxAge = Math.max(oldAge, targetOldAge || 0, targetSum || 0)
+  const scale = Math.min(3, 150 / maxAge)
+  const barWidth = 50
+  const bar1X = 70
+  const bar2X = 200
+  const baseY = 200
 
-  // 步骤2：显示年龄差（对应 steps[1]）
-  if (step >= 2) {
-    if (isMultiple || isPast) {
-      // 倍数问题：强调年龄差永远不变
+  // ========== 年龄差问题（age-difference）==========
+  // steps: [年龄差永远不变, 今年差X岁, 5年后还是差X岁]
+  if (props.animationType === 'age-difference') {
+    // step 1: 显示今年两人年龄柱状图
+    if (step >= 1) {
+      const bar1 = createSvgElement('rect', { x: bar1X, y: baseY - youngAge * scale, width: barWidth, height: youngAge * scale, fill: '#3498db', rx: 6 })
+      const bar2 = createSvgElement('rect', { x: bar2X, y: baseY - oldAge * scale, width: barWidth, height: oldAge * scale, fill: '#e91e63', rx: 6 })
+      barsGroup.appendChild(bar1)
+      barsGroup.appendChild(bar2)
+      gsap.fromTo([bar1, bar2], { scaleY: 0 }, { scaleY: 1, duration: 0.8, transformOrigin: 'bottom' })
+      addText(labelsGroup, bar1X + barWidth / 2, baseY + 15, `${youngName} ${youngAge}岁`, { fill: '#3498db', size: 12 })
+      addText(labelsGroup, bar2X + barWidth / 2, baseY + 15, `${oldName} ${oldAge}岁`, { fill: '#e91e63', size: 12 })
+    }
+    // step 2: 标注年龄差
+    if (step >= 2) {
+      const arrowY = baseY - oldAge * scale + 12
       const arrow = createSvgElement('line', {
-        x1: 140, y1: 200 - oldAge * 3 + 10, x2: 180, y2: 200 - oldAge * 3 + 10,
+        x1: bar1X + barWidth, y1: arrowY, x2: bar2X, y2: arrowY,
         stroke: '#f5a623', 'stroke-width': 3, 'marker-end': 'url(#arrow)'
       })
       diffArrowGroup.appendChild(arrow)
       gsap.fromTo(arrow, { scaleX: 0 }, { scaleX: 1, duration: 0.6, transformOrigin: 'left center' })
-      const label = addText(labelsGroup, 160, 200 - oldAge * 3 - 5, `年龄差 = ${ageDiffValue}岁`, { fill: '#f5a623', size: 13 })
-      gsap.fromTo(label, { opacity: 0 }, { opacity: 1, duration: 0.5 })
-    } else if (isSum) {
-      // 年龄和问题：显示年龄和
-      const sumLabel = addText(labelsGroup, 200, 200, `今年年龄和 = ${youngAge} + ${oldAge} = ${currentSum}岁`, { fill: '#f5a623', size: 13 })
-      gsap.fromTo(sumLabel, { opacity: 0, y: -10 }, { opacity: 1, y: 0, duration: 0.5 })
-    } else {
-      // 普通年龄差问题
-      const arrow = createSvgElement('line', {
-        x1: 140, y1: 200 - oldAge * 3 + 10, x2: 180, y2: 200 - oldAge * 3 + 10,
-        stroke: '#f5a623', 'stroke-width': 3, 'marker-end': 'url(#arrow)'
-      })
-      diffArrowGroup.appendChild(arrow)
-      gsap.fromTo(arrow, { scaleX: 0 }, { scaleX: 1, duration: 0.6, transformOrigin: 'left center' })
-      const label = addText(labelsGroup, 160, 200 - oldAge * 3 - 5, `差${ageDiffValue}岁`, { fill: '#f5a623', size: 13 })
+      const label = addText(labelsGroup, (bar1X + bar2X) / 2, arrowY - 8, `年龄差 = ${ageDiffValue}岁`, { fill: '#f5a623', size: 13 })
       gsap.fromTo(label, { opacity: 0 }, { opacity: 1, duration: 0.5 })
     }
-  }
-
-  // 步骤3：核心解题思路（对应 steps[2]）
-  if (step >= 3) {
-    if (isMultiple || isPast) {
-      // 用线段图展示差倍关系
-      const multipleLabel = addText(labelsGroup, 200, 140, `${oldName}的年龄是${youngName}的${multiple}倍时：`, { fill: '#e74c3c', size: 13 })
-      gsap.fromTo(multipleLabel, { opacity: 0, y: -10 }, { opacity: 1, y: 0, duration: 0.5 })
-      
-      // 画出目标状态的年龄条（虚线表示）
-      const targetBar1 = createSvgElement('rect', { 
-        x: 80, y: 200 - targetYoungAge * 3, width: 60, height: targetYoungAge * 3, 
-        fill: '#3498db', rx: 8, opacity: 0.5, 'stroke-dasharray': '4' 
-      })
-      const targetBar2 = createSvgElement('rect', { 
-        x: 180, y: 200 - targetOldAge * 3, width: 60, height: targetOldAge * 3, 
-        fill: '#e91e63', rx: 8, opacity: 0.5, 'stroke-dasharray': '4' 
-      })
-      barsGroup.appendChild(targetBar1)
-      barsGroup.appendChild(targetBar2)
-      gsap.fromTo([targetBar1, targetBar2], { opacity: 0, scaleY: 0 }, { opacity: 0.5, scaleY: 1, duration: 0.8, transformOrigin: 'bottom' })
-      
-      // 显示差倍算式
-      const formula = addText(labelsGroup, 200, 240, `那时${youngName}的年龄：${ageDiffValue} ÷ (${multiple} - 1) = ${targetYoungAge}岁`, { fill: '#2c3e50', size: 13 })
-      gsap.fromTo(formula, { opacity: 0 }, { opacity: 1, duration: 0.5 })
-    } else if (isSum) {
-      // 年龄和问题：显示还需要增加的年龄
-      const needLabel = addText(labelsGroup, 200, 140, `还需要增加：${targetSum} - ${currentSum} = ${targetSum - currentSum}岁`, { fill: '#e74c3c', size: 13 })
-      gsap.fromTo(needLabel, { opacity: 0, y: -10 }, { opacity: 1, y: 0, duration: 0.5 })
-    } else {
-      // 普通年龄差：显示答案
+    // step 3: 显示答案
+    if (step >= 3) {
       const answerText = addText(labelsGroup, 200, 240, `答案：${props.answer}`, { fill: '#e74c3c', size: 16, weight: 'bold' })
       gsap.fromTo(answerText, { opacity: 0, scale: 0.5 }, { opacity: 1, scale: 1, duration: 0.6, transformOrigin: 'center' })
     }
   }
 
-  // 步骤4：继续计算（对应 steps[3]）
-  if (step >= 4) {
-    if (isMultiple || isPast) {
-      // 显示还需要多少年
-      const yearsLabel = addText(labelsGroup, 200, 260, `${youngName}从${youngAge}岁到${targetYoungAge}岁，需要${Math.abs(yearsLater)}年`, { fill: '#2c3e50', size: 13 })
+  // ========== 年龄倍数问题（age-multiple）==========
+  // steps: [年龄差, 多N倍, 那时小孩年龄, 需要多少年]
+  if (props.animationType === 'age-multiple') {
+    // step 1: 显示今年两人年龄 + 年龄差
+    if (step >= 1) {
+      const bar1 = createSvgElement('rect', { x: bar1X, y: baseY - youngAge * scale, width: barWidth, height: youngAge * scale, fill: '#3498db', rx: 6 })
+      const bar2 = createSvgElement('rect', { x: bar2X, y: baseY - oldAge * scale, width: barWidth, height: oldAge * scale, fill: '#e91e63', rx: 6 })
+      barsGroup.appendChild(bar1)
+      barsGroup.appendChild(bar2)
+      gsap.fromTo([bar1, bar2], { scaleY: 0 }, { scaleY: 1, duration: 0.8, transformOrigin: 'bottom' })
+      addText(labelsGroup, bar1X + barWidth / 2, baseY + 15, `${youngName} ${youngAge}岁`, { fill: '#3498db', size: 12 })
+      addText(labelsGroup, bar2X + barWidth / 2, baseY + 15, `${oldName} ${oldAge}岁`, { fill: '#e91e63', size: 12 })
+      // 年龄差箭头
+      const arrowY = baseY - oldAge * scale + 12
+      const arrow = createSvgElement('line', {
+        x1: bar1X + barWidth, y1: arrowY, x2: bar2X, y2: arrowY,
+        stroke: '#f5a623', 'stroke-width': 3, 'marker-end': 'url(#arrow)'
+      })
+      diffArrowGroup.appendChild(arrow)
+      gsap.fromTo(arrow, { scaleX: 0 }, { scaleX: 1, duration: 0.6, delay: 0.4, transformOrigin: 'left center' })
+      const diffLabel = addText(labelsGroup, (bar1X + bar2X) / 2, arrowY - 8, `年龄差 = ${ageDiffValue}岁`, { fill: '#f5a623', size: 13 })
+      gsap.fromTo(diffLabel, { opacity: 0 }, { opacity: 1, duration: 0.5, delay: 0.6 })
+    }
+    // step 2: 用线段图展示目标时刻的倍数关系
+    if (step >= 2) {
+      // 清除之前的柱状图，改用线段图
+      barsGroup.innerHTML = ''
+      diffArrowGroup.innerHTML = ''
+      labelsGroup.innerHTML = ''
+      // 画小孩的线段（1份）
+      const segWidth = 30
+      const segY1 = 100
+      const youngSeg = createSvgElement('rect', { x: 20, y: segY1, width: segWidth, height: 20, fill: '#3498db', rx: 4 })
+      barsGroup.appendChild(youngSeg)
+      gsap.fromTo(youngSeg, { scaleX: 0 }, { scaleX: 1, duration: 0.5, transformOrigin: 'left center' })
+      addText(labelsGroup, 35, segY1 - 8, `${youngName}（1份）`, { fill: '#3498db', size: 12 })
+      // 画大人的线段（N份）
+      const oldSegY = 140
+      for (let i = 0; i < multiple; i++) {
+        const seg = createSvgElement('rect', { x: 20 + i * segWidth, y: oldSegY, width: segWidth - 2, height: 20, fill: '#e91e63', rx: 4, opacity: 0.85 })
+        barsGroup.appendChild(seg)
+        gsap.fromTo(seg, { scaleX: 0 }, { scaleX: 1, duration: 0.3, delay: 0.2 + i * 0.15, transformOrigin: 'left center' })
+      }
+      addText(labelsGroup, 20 + multiple * segWidth / 2, oldSegY - 8, `${oldName}（${multiple}份）`, { fill: '#e91e63', size: 12 })
+      // 标注多出的部分（N-1份 = 年龄差）
+      const diffX = 20 + segWidth
+      const diffWidth = (multiple - 1) * segWidth
+      const diffBracket = createSvgElement('rect', {
+        x: diffX, y: oldSegY - 5, width: diffWidth, height: 30,
+        fill: 'none', stroke: '#f5a623', 'stroke-width': 2, 'stroke-dasharray': '4'
+      })
+      barsGroup.appendChild(diffBracket)
+      gsap.fromTo(diffBracket, { opacity: 0 }, { opacity: 1, duration: 0.5, delay: 0.5 + multiple * 0.15 })
+      const diffLabel = addText(labelsGroup, diffX + diffWidth / 2, oldSegY + 35, `多${multiple - 1}份 = ${ageDiffValue}岁`, { fill: '#f5a623', size: 13 })
+      gsap.fromTo(diffLabel, { opacity: 0, y: -10 }, { opacity: 1, y: 0, duration: 0.5, delay: 0.6 + multiple * 0.15 })
+    }
+    // step 3: 计算那时小孩的年龄
+    if (step >= 3) {
+      const formula = addText(labelsGroup, 200, 200, `${ageDiffValue} ÷ (${multiple} - 1) = ${targetYoungAge}岁`, { fill: '#2c3e50', size: 14, weight: 'bold' })
+      gsap.fromTo(formula, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+      const targetLabel = addText(labelsGroup, 200, 220, `那时${youngName} ${targetYoungAge}岁，${oldName} ${targetOldAge}岁`, { fill: '#2c3e50', size: 12 })
+      gsap.fromTo(targetLabel, { opacity: 0 }, { opacity: 1, duration: 0.5, delay: 0.2 })
+    }
+    // step 4: 计算需要多少年 + 答案
+    if (step >= 4) {
+      const yearsLabel = addText(labelsGroup, 200, 240, `${youngName}从${youngAge}岁到${targetYoungAge}岁，需要${Math.abs(yearsLater)}年`, { fill: '#2c3e50', size: 13 })
       gsap.fromTo(yearsLabel, { opacity: 0 }, { opacity: 1, duration: 0.5 })
-    } else if (isSum) {
-      // 年龄和问题：显示计算过程
-      const calcLabel = addText(labelsGroup, 200, 170, `每年两人共长2岁，需要：${targetSum - currentSum} ÷ 2 = ${targetYears}年`, { fill: '#2c3e50', size: 13 })
-      gsap.fromTo(calcLabel, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+      const answerText = addText(labelsGroup, 200, 265, `答案：${props.answer}`, { fill: '#e74c3c', size: 16, weight: 'bold' })
+      gsap.fromTo(answerText, { opacity: 0, scale: 0.5 }, { opacity: 1, scale: 1, duration: 0.6, delay: 0.3, transformOrigin: 'center' })
     }
   }
 
-  // 步骤5：最终答案
-  if (step >= 5 || (isSum && step >= 4) || (!isMultiple && !isPast && !isSum && step >= 3)) {
-    const answerText = addText(labelsGroup, 200, 290, `答案：${props.answer}`, { fill: '#e74c3c', size: 16, weight: 'bold' })
-    gsap.fromTo(answerText, { opacity: 0, scale: 0.5 }, { opacity: 1, scale: 1, duration: 0.6, transformOrigin: 'center' })
+  // ========== 过去年龄问题（age-past）==========
+  // steps: [年龄差, 多N倍, 那时小孩年龄, 几年前]
+  if (props.animationType === 'age-past') {
+    // step 1: 显示今年两人年龄 + 年龄差
+    if (step >= 1) {
+      const bar1 = createSvgElement('rect', { x: bar1X, y: baseY - youngAge * scale, width: barWidth, height: youngAge * scale, fill: '#3498db', rx: 6 })
+      const bar2 = createSvgElement('rect', { x: bar2X, y: baseY - oldAge * scale, width: barWidth, height: oldAge * scale, fill: '#e91e63', rx: 6 })
+      barsGroup.appendChild(bar1)
+      barsGroup.appendChild(bar2)
+      gsap.fromTo([bar1, bar2], { scaleY: 0 }, { scaleY: 1, duration: 0.8, transformOrigin: 'bottom' })
+      addText(labelsGroup, bar1X + barWidth / 2, baseY + 15, `${youngName} ${youngAge}岁`, { fill: '#3498db', size: 12 })
+      addText(labelsGroup, bar2X + barWidth / 2, baseY + 15, `${oldName} ${oldAge}岁`, { fill: '#e91e63', size: 12 })
+      const arrowY = baseY - oldAge * scale + 12
+      const arrow = createSvgElement('line', {
+        x1: bar1X + barWidth, y1: arrowY, x2: bar2X, y2: arrowY,
+        stroke: '#f5a623', 'stroke-width': 3, 'marker-end': 'url(#arrow)'
+      })
+      diffArrowGroup.appendChild(arrow)
+      gsap.fromTo(arrow, { scaleX: 0 }, { scaleX: 1, duration: 0.6, delay: 0.4, transformOrigin: 'left center' })
+      const diffLabel = addText(labelsGroup, (bar1X + bar2X) / 2, arrowY - 8, `年龄差 = ${ageDiffValue}岁`, { fill: '#f5a623', size: 13 })
+      gsap.fromTo(diffLabel, { opacity: 0 }, { opacity: 1, duration: 0.5, delay: 0.6 })
+    }
+    // step 2: 用线段图展示过去时刻的倍数关系
+    if (step >= 2) {
+      barsGroup.innerHTML = ''
+      diffArrowGroup.innerHTML = ''
+      labelsGroup.innerHTML = ''
+      const segWidth = 30
+      const segY1 = 100
+      const youngSeg = createSvgElement('rect', { x: 20, y: segY1, width: segWidth, height: 20, fill: '#3498db', rx: 4 })
+      barsGroup.appendChild(youngSeg)
+      gsap.fromTo(youngSeg, { scaleX: 0 }, { scaleX: 1, duration: 0.5, transformOrigin: 'left center' })
+      addText(labelsGroup, 35, segY1 - 8, `${youngName}（1份）`, { fill: '#3498db', size: 12 })
+      const oldSegY = 140
+      for (let i = 0; i < multiple; i++) {
+        const seg = createSvgElement('rect', { x: 20 + i * segWidth, y: oldSegY, width: segWidth - 2, height: 20, fill: '#e91e63', rx: 4, opacity: 0.85 })
+        barsGroup.appendChild(seg)
+        gsap.fromTo(seg, { scaleX: 0 }, { scaleX: 1, duration: 0.3, delay: 0.2 + i * 0.15, transformOrigin: 'left center' })
+      }
+      addText(labelsGroup, 20 + multiple * segWidth / 2, oldSegY - 8, `${oldName}（${multiple}份）`, { fill: '#e91e63', size: 12 })
+      const diffX = 20 + segWidth
+      const diffWidth = (multiple - 1) * segWidth
+      const diffBracket = createSvgElement('rect', {
+        x: diffX, y: oldSegY - 5, width: diffWidth, height: 30,
+        fill: 'none', stroke: '#f5a623', 'stroke-width': 2, 'stroke-dasharray': '4'
+      })
+      barsGroup.appendChild(diffBracket)
+      gsap.fromTo(diffBracket, { opacity: 0 }, { opacity: 1, duration: 0.5, delay: 0.5 + multiple * 0.15 })
+      const diffLabel = addText(labelsGroup, diffX + diffWidth / 2, oldSegY + 35, `多${multiple - 1}份 = ${ageDiffValue}岁`, { fill: '#f5a623', size: 13 })
+      gsap.fromTo(diffLabel, { opacity: 0, y: -10 }, { opacity: 1, y: 0, duration: 0.5, delay: 0.6 + multiple * 0.15 })
+    }
+    // step 3: 计算那时小孩的年龄
+    if (step >= 3) {
+      const formula = addText(labelsGroup, 200, 200, `${ageDiffValue} ÷ (${multiple} - 1) = ${targetYoungAge}岁`, { fill: '#2c3e50', size: 14, weight: 'bold' })
+      gsap.fromTo(formula, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+      const targetLabel = addText(labelsGroup, 200, 220, `那时${youngName} ${targetYoungAge}岁，${oldName} ${targetOldAge}岁`, { fill: '#2c3e50', size: 12 })
+      gsap.fromTo(targetLabel, { opacity: 0 }, { opacity: 1, duration: 0.5, delay: 0.2 })
+    }
+    // step 4: 计算几年前 + 答案
+    if (step >= 4) {
+      const yearsLabel = addText(labelsGroup, 200, 240, `${youngName}从${youngAge}岁回到${targetYoungAge}岁，是${Math.abs(yearsLater)}年前`, { fill: '#2c3e50', size: 13 })
+      gsap.fromTo(yearsLabel, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+      const answerText = addText(labelsGroup, 200, 265, `答案：${props.answer}`, { fill: '#e74c3c', size: 16, weight: 'bold' })
+      gsap.fromTo(answerText, { opacity: 0, scale: 0.5 }, { opacity: 1, scale: 1, duration: 0.6, delay: 0.3, transformOrigin: 'center' })
+    }
+  }
+
+  // ========== 年龄和问题（age-sum）==========
+  // steps: [今年年龄和, 还需增加, 每年共长2岁, 需要多少年]
+  if (props.animationType === 'age-sum') {
+    // step 1: 显示今年两人年龄 + 年龄和
+    if (step >= 1) {
+      const bar1 = createSvgElement('rect', { x: bar1X, y: baseY - youngAge * scale, width: barWidth, height: youngAge * scale, fill: '#3498db', rx: 6 })
+      const bar2 = createSvgElement('rect', { x: bar2X, y: baseY - oldAge * scale, width: barWidth, height: oldAge * scale, fill: '#e91e63', rx: 6 })
+      barsGroup.appendChild(bar1)
+      barsGroup.appendChild(bar2)
+      gsap.fromTo([bar1, bar2], { scaleY: 0 }, { scaleY: 1, duration: 0.8, transformOrigin: 'bottom' })
+      addText(labelsGroup, bar1X + barWidth / 2, baseY + 15, `${youngName} ${youngAge}岁`, { fill: '#3498db', size: 12 })
+      addText(labelsGroup, bar2X + barWidth / 2, baseY + 15, `${oldName} ${oldAge}岁`, { fill: '#e91e63', size: 12 })
+      const sumLabel = addText(labelsGroup, 200, 100, `今年年龄和 = ${youngAge} + ${oldAge} = ${currentSum}岁`, { fill: '#f5a623', size: 13 })
+      gsap.fromTo(sumLabel, { opacity: 0, y: -10 }, { opacity: 1, y: 0, duration: 0.5, delay: 0.4 })
+    }
+    // step 2: 显示还需要增加多少
+    if (step >= 2) {
+      const needLabel = addText(labelsGroup, 200, 125, `目标和 ${targetSum}岁，还需增加：${targetSum} - ${currentSum} = ${targetSum - currentSum}岁`, { fill: '#e74c3c', size: 13 })
+      gsap.fromTo(needLabel, { opacity: 0, y: -10 }, { opacity: 1, y: 0, duration: 0.5 })
+    }
+    // step 3: 解释每年共长2岁
+    if (step >= 3) {
+      const calcLabel = addText(labelsGroup, 200, 150, `每人每年各长1岁，两人共长2岁`, { fill: '#2c3e50', size: 13 })
+      gsap.fromTo(calcLabel, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+    }
+    // step 4: 计算需要多少年 + 答案
+    if (step >= 4) {
+      const resultLabel = addText(labelsGroup, 200, 175, `${targetSum - currentSum} ÷ 2 = ${targetYears}年`, { fill: '#2c3e50', size: 14, weight: 'bold' })
+      gsap.fromTo(resultLabel, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+      const answerText = addText(labelsGroup, 200, 200, `答案：${props.answer}`, { fill: '#e74c3c', size: 16, weight: 'bold' })
+      gsap.fromTo(answerText, { opacity: 0, scale: 0.5 }, { opacity: 1, scale: 1, duration: 0.6, delay: 0.3, transformOrigin: 'center' })
+    }
   }
 }
 
