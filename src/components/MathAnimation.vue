@@ -302,11 +302,17 @@ const renderAge = async (step) => {
   const targetSumMatch = q.match(/和是(\d+)岁/)
   const targetSum = targetSumMatch ? parseInt(targetSumMatch[1]) : 30
 
-  // 从题目中提取年龄
+  // 从题目中提取年龄：根据人物名称匹配对应的年龄
   let youngAge = 8, oldAge = 32
   const numsInQ = extractNumbers(q)
-  if (numsInQ.length >= 2) {
-    // 通常第一个是大人的年龄，第二个是小孩的年龄
+  // 尝试匹配 "X今年N岁" 的格式
+  const youngAgeMatch = q.match(new RegExp(`${youngName}今年(\\d+)岁`))
+  const oldAgeMatch = q.match(new RegExp(`${oldName}今年(\\d+)岁`))
+  if (youngAgeMatch && oldAgeMatch) {
+    youngAge = parseInt(youngAgeMatch[1])
+    oldAge = parseInt(oldAgeMatch[1])
+  } else if (numsInQ.length >= 2) {
+    // 兜底：通常第一个是大人的年龄，第二个是小孩的年龄
     oldAge = numsInQ[0]
     youngAge = numsInQ[1]
   }
@@ -538,12 +544,12 @@ const renderAge = async (step) => {
   }
 }
 
-// 差倍问题
+// 差倍问题 - 上下垂直线段图，清晰展示差和倍的关系
 const renderDifferenceMultiple = async (step) => {
   await nextTick()
   const scene = svgRef.value.querySelector('.scene')
   if (!scene) return
-  const { q, nums } = parseQuestion()
+  const { q } = parseQuestion()
   const multipleMatch = q.match(/(\d+)倍/)
   const multiple = multipleMatch ? parseInt(multipleMatch[1]) : 3
   const diffMatch = q.match(/多(\d+)|大(\d+)/)
@@ -551,37 +557,92 @@ const renderDifferenceMultiple = async (step) => {
   const smallValue = diff / (multiple - 1)
   const largeValue = smallValue * multiple
 
+  // 根据题目内容解析大小两数的名称
+  let smallName = '乙数', largeName = '甲数'
+  if (q.includes('大筐') && q.includes('小筐')) {
+    smallName = '小筐'
+    largeName = '大筐'
+  } else if (q.includes('长') && q.includes('宽')) {
+    smallName = '宽'
+    largeName = '长'
+  } else if (q.includes('A') && q.includes('B')) {
+    smallName = 'B'
+    largeName = 'A'
+  } else if (q.includes('哥哥') && q.includes('弟弟')) {
+    smallName = '弟弟'
+    largeName = '哥哥'
+  }
+
   const segmentsGroup = scene.querySelector('.line-segments')
   const labelsGroup = scene.querySelector('.segment-labels')
 
+  // 线段图参数
+  const segWidth = 50
+  const segHeight = 24
+  const startX = 60
+  const smallY = 70   // 小数在上方
+  const largeY = 130  // 大数在下方
+
+  // step 1: 画小数（1份）和大数（N份）的线段
   if (step >= 1) {
-    const bar1 = createSvgElement('rect', { x: 80, y: 150, width: smallValue * 8, height: 40, fill: '#3498db', rx: 4 })
-    const bar2 = createSvgElement('rect', { x: 80, y: 150, width: largeValue * 8, height: 40, fill: '#e91e63', rx: 4, opacity: 0.7 })
-    segmentsGroup.appendChild(bar1)
-    segmentsGroup.appendChild(bar2)
-    gsap.fromTo([bar1, bar2], { scaleX: 0 }, { scaleX: 1, duration: 0.8, transformOrigin: 'left center' })
-    addText(labelsGroup, 80 + smallValue * 4, 180, '乙数', { fill: '#3498db', size: 12 })
-    addText(labelsGroup, 80 + largeValue * 4, 180, '甲数', { fill: '#e91e63', size: 12 })
-  }
-
-  if (step >= 2) {
-    const diffBar = createSvgElement('rect', {
-      x: 80 + smallValue * 8, y: 140, width: (largeValue - smallValue) * 8, height: 50,
-      fill: 'none', stroke: '#f5a623', 'stroke-width': 2, 'stroke-dasharray': '4'
+    // 小数：1段
+    const smallSeg = createSvgElement('rect', {
+      x: startX, y: smallY, width: segWidth, height: segHeight,
+      fill: '#3498db', rx: 4
     })
-    segmentsGroup.appendChild(diffBar)
-    gsap.fromTo(diffBar, { opacity: 0 }, { opacity: 1, duration: 0.5 })
-    const label = addText(labelsGroup, 80 + smallValue * 8 + (largeValue - smallValue) * 4, 135, `多${diff}`, { fill: '#f5a623', size: 13 })
-    gsap.fromTo(label, { opacity: 0, y: -10 }, { opacity: 1, y: 0, duration: 0.5 })
+    segmentsGroup.appendChild(smallSeg)
+    gsap.fromTo(smallSeg, { scaleX: 0 }, { scaleX: 1, duration: 0.5, transformOrigin: 'left center' })
+    addText(labelsGroup, startX + segWidth / 2, smallY - 10, `${smallName}（1份）`, { fill: '#3498db', size: 13 })
+
+    // 大数：N段
+    for (let i = 0; i < multiple; i++) {
+      const seg = createSvgElement('rect', {
+        x: startX + i * segWidth, y: largeY, width: segWidth - 2, height: segHeight,
+        fill: '#e91e63', rx: 4, opacity: 0.85
+      })
+      segmentsGroup.appendChild(seg)
+      gsap.fromTo(seg, { scaleX: 0 }, { scaleX: 1, duration: 0.3, delay: 0.3 + i * 0.15, transformOrigin: 'left center' })
+    }
+    addText(labelsGroup, startX + (multiple * segWidth) / 2, largeY - 10, `${largeName}（${multiple}份）`, { fill: '#e91e63', size: 13 })
   }
 
+  // step 2: 标注大数比小数多的部分（差 = N-1 份）
+  if (step >= 2) {
+    // 在大数上标注多出的部分（从第2段开始）
+    const diffStartX = startX + segWidth
+    const diffWidth = (multiple - 1) * segWidth
+    const diffBracket = createSvgElement('rect', {
+      x: diffStartX, y: largeY - 8, width: diffWidth, height: segHeight + 16,
+      fill: 'none', stroke: '#f5a623', 'stroke-width': 2.5, 'stroke-dasharray': '6,4'
+    })
+    segmentsGroup.appendChild(diffBracket)
+    gsap.fromTo(diffBracket, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+
+    // 差值标注线：连接小数末端和大数多出部分
+    const diffLine = createSvgElement('line', {
+      x1: startX + segWidth, y1: smallY + segHeight / 2,
+      x2: startX + segWidth, y2: largeY + segHeight / 2,
+      stroke: '#f5a623', 'stroke-width': 2, 'stroke-dasharray': '4'
+    })
+    segmentsGroup.appendChild(diffLine)
+    gsap.fromTo(diffLine, { opacity: 0 }, { opacity: 1, duration: 0.4, delay: 0.2 })
+
+    // 差值标签
+    const diffLabel = addText(labelsGroup, diffStartX + diffWidth / 2, largeY + segHeight + 25,
+      `${largeName}比${smallName}多 ${multiple - 1} 份 = ${diff}`, { fill: '#f5a623', size: 14, weight: 'bold' })
+    gsap.fromTo(diffLabel, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.5, delay: 0.3 })
+  }
+
+  // step 3: 显示计算1份的算式
   if (step >= 3) {
-    const formula = addText(labelsGroup, 200, 220, `${diff} ÷ (${multiple} - 1) = ${smallValue}`, { fill: '#2c3e50', size: 14 })
+    const formula = addText(labelsGroup, 200, 200,
+      `1份（${smallName}）= ${diff} ÷ (${multiple} - 1) = ${smallValue}`, { fill: '#2c3e50', size: 14, weight: 'bold' })
     gsap.fromTo(formula, { opacity: 0 }, { opacity: 1, duration: 0.5 })
   }
 
+  // step 4: 显示答案
   if (step >= 4) {
-    const answerText = addText(labelsGroup, 200, 240, `答案：${props.answer}`, { fill: '#e74c3c', size: 16, weight: 'bold' })
+    const answerText = addText(labelsGroup, 200, 230, `答案：${props.answer}`, { fill: '#e74c3c', size: 16, weight: 'bold' })
     gsap.fromTo(answerText, { opacity: 0, scale: 0.5 }, { opacity: 1, scale: 1, duration: 0.6, transformOrigin: 'center' })
   }
 }
