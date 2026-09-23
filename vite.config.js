@@ -3,6 +3,7 @@ import vue from '@vitejs/plugin-vue'
 
 export default defineConfig({
   plugins: [vue()],
+  base: '/math-platform/',
   server: {
     host: '127.0.0.1',
     port: 3000,
