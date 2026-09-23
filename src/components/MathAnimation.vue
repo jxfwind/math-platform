@@ -647,50 +647,142 @@ const renderDifferenceMultiple = async (step) => {
   }
 }
 
-// 和差问题
+// 和差问题 - 上下垂直线段图，体现和与差的关系
 const renderSumDifference = async (step) => {
   await nextTick()
   const scene = svgRef.value.querySelector('.scene')
   if (!scene) return
-  const { q, nums } = parseQuestion()
-  const sumMatch = q.match(/共(\d+)|和是(\d+)/)
-  const sum = sumMatch ? parseInt(sumMatch[1] || sumMatch[2]) : 36
+  const { q } = parseQuestion()
+  const sumMatch = q.match(/共(\d+)|和是(\d+)|之和是(\d+)/)
+  const sum = sumMatch ? parseInt(sumMatch[1] || sumMatch[2] || sumMatch[3]) : 36
   const diffMatch = q.match(/多(\d+)|大(\d+)|相差(\d+)/)
   const diff = diffMatch ? parseInt(diffMatch[1] || diffMatch[2] || diffMatch[3]) : 8
   const large = (sum + diff) / 2
   const small = (sum - diff) / 2
 
+  // 根据题目内容解析大小两数的名称
+  let smallName = '较小数', largeName = '较大数'
+  if (q.includes('小明') && q.includes('小红')) {
+    smallName = '小红'
+    largeName = '小明'
+  } else if (q.includes('长') && q.includes('宽')) {
+    smallName = '宽'
+    largeName = '长'
+  } else if (q.includes('甲') && q.includes('乙')) {
+    smallName = '乙'
+    largeName = '甲'
+  } else if (q.includes('大筐') && q.includes('小筐')) {
+    smallName = '小筐'
+    largeName = '大筐'
+  } else if (q.includes('哥哥') && q.includes('弟弟')) {
+    smallName = '弟弟'
+    largeName = '哥哥'
+  }
+
   const segmentsGroup = scene.querySelector('.line-segments')
   const labelsGroup = scene.querySelector('.segment-labels')
 
+  // 线段图参数
+  const segWidth = 50
+  const segHeight = 24
+  const startX = 60
+  const smallY = 70   // 小数在上方
+  const largeY = 130  // 大数在下方
+
+  // step 1: 画小数和大数的线段，展示"和"
   if (step >= 1) {
-    const bar1 = createSvgElement('rect', { x: 80, y: 150, width: small * 8, height: 40, fill: '#3498db', rx: 4 })
-    const bar2 = createSvgElement('rect', { x: 80, y: 150, width: large * 8, height: 40, fill: '#e91e63', rx: 4, opacity: 0.7 })
-    segmentsGroup.appendChild(bar1)
-    segmentsGroup.appendChild(bar2)
-    gsap.fromTo([bar1, bar2], { scaleX: 0 }, { scaleX: 1, duration: 0.8, transformOrigin: 'left center' })
-    addText(labelsGroup, 80 + small * 4, 180, '较小数', { fill: '#3498db', size: 12 })
-    addText(labelsGroup, 80 + large * 4, 180, '较大数', { fill: '#e91e63', size: 12 })
-  }
-
-  if (step >= 2) {
-    const diffBar = createSvgElement('rect', {
-      x: 80 + small * 8, y: 140, width: (large - small) * 8, height: 50,
-      fill: 'none', stroke: '#f5a623', 'stroke-width': 2, 'stroke-dasharray': '4'
+    // 小数：1段
+    const smallSeg = createSvgElement('rect', {
+      x: startX, y: smallY, width: segWidth, height: segHeight,
+      fill: '#3498db', rx: 4
     })
-    segmentsGroup.appendChild(diffBar)
-    gsap.fromTo(diffBar, { opacity: 0 }, { opacity: 1, duration: 0.5 })
-    const label = addText(labelsGroup, 80 + small * 8 + (large - small) * 4, 135, `相差${diff}`, { fill: '#f5a623', size: 13 })
-    gsap.fromTo(label, { opacity: 0, y: -10 }, { opacity: 1, y: 0, duration: 0.5 })
+    segmentsGroup.appendChild(smallSeg)
+    gsap.fromTo(smallSeg, { scaleX: 0 }, { scaleX: 1, duration: 0.5, transformOrigin: 'left center' })
+    addText(labelsGroup, startX + segWidth / 2, smallY - 10, `${smallName}`, { fill: '#3498db', size: 13 })
+
+    // 大数：比小数多出的部分用不同颜色区分
+    // 先画与小数相等的部分
+    const largeEqualSeg = createSvgElement('rect', {
+      x: startX, y: largeY, width: segWidth, height: segHeight,
+      fill: '#e91e63', rx: 4, opacity: 0.85
+    })
+    segmentsGroup.appendChild(largeEqualSeg)
+    gsap.fromTo(largeEqualSeg, { scaleX: 0 }, { scaleX: 1, duration: 0.5, delay: 0.2, transformOrigin: 'left center' })
+
+    // 再画多出的部分（差）
+    const largeDiffSeg = createSvgElement('rect', {
+      x: startX + segWidth, y: largeY, width: segWidth * 0.6, height: segHeight,
+      fill: '#f5a623', rx: 4
+    })
+    segmentsGroup.appendChild(largeDiffSeg)
+    gsap.fromTo(largeDiffSeg, { scaleX: 0 }, { scaleX: 1, duration: 0.4, delay: 0.5, transformOrigin: 'left center' })
+
+    addText(labelsGroup, startX + segWidth + segWidth * 0.3, largeY - 10, `${largeName}`, { fill: '#e91e63', size: 13 })
+
+    // 标注"和"
+    const sumLabel = addText(labelsGroup, 200, 40, `${smallName} + ${largeName} = ${sum}`, { fill: '#2c3e50', size: 14, weight: 'bold' })
+    gsap.fromTo(sumLabel, { opacity: 0, y: -10 }, { opacity: 1, y: 0, duration: 0.5, delay: 0.6 })
   }
 
+  // step 2: 标注"差"
+  if (step >= 2) {
+    // 用虚线框标出大数比小数多的部分
+    const diffBracket = createSvgElement('rect', {
+      x: startX + segWidth, y: largeY - 5, width: segWidth * 0.6, height: segHeight + 10,
+      fill: 'none', stroke: '#f5a623', 'stroke-width': 2.5, 'stroke-dasharray': '6,4'
+    })
+    segmentsGroup.appendChild(diffBracket)
+    gsap.fromTo(diffBracket, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+
+    // 差值标注线
+    const diffLine = createSvgElement('line', {
+      x1: startX + segWidth, y1: smallY + segHeight / 2,
+      x2: startX + segWidth, y2: largeY + segHeight / 2,
+      stroke: '#f5a623', 'stroke-width': 2, 'stroke-dasharray': '4'
+    })
+    segmentsGroup.appendChild(diffLine)
+    gsap.fromTo(diffLine, { opacity: 0 }, { opacity: 1, duration: 0.4, delay: 0.2 })
+
+    // 差值标签
+    const diffLabel = addText(labelsGroup, startX + segWidth + segWidth * 0.3, largeY + segHeight + 20,
+      `${largeName}比${smallName}多 ${diff}`, { fill: '#f5a623', size: 13, weight: 'bold' })
+    gsap.fromTo(diffLabel, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.5, delay: 0.3 })
+  }
+
+  // step 3: 展示"补上差值后两数相等"的概念
   if (step >= 3) {
-    const formula = addText(labelsGroup, 200, 220, `较大数 = (${sum} + ${diff}) ÷ 2 = ${large}`, { fill: '#2c3e50', size: 14 })
-    gsap.fromTo(formula, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+    // 在小数旁边补上差值，使其与大数相等
+    const supplementSeg = createSvgElement('rect', {
+      x: startX + segWidth, y: smallY, width: segWidth * 0.6, height: segHeight,
+      fill: '#3498db', rx: 4, opacity: 0.4, 'stroke-dasharray': '4'
+    })
+    segmentsGroup.appendChild(supplementSeg)
+    gsap.fromTo(supplementSeg, { scaleX: 0 }, { scaleX: 1, duration: 0.5, transformOrigin: 'left center' })
+
+    const supplementLabel = addText(labelsGroup, startX + segWidth + segWidth * 0.3, smallY - 10,
+      `补上${diff}`, { fill: '#3498db', size: 11 })
+    gsap.fromTo(supplementLabel, { opacity: 0 }, { opacity: 1, duration: 0.4, delay: 0.3 })
+
+    // 显示算式
+    const formula = addText(labelsGroup, 200, 200,
+      `补上后两数相等：${smallName} + ${diff} = ${largeName}`, { fill: '#2c3e50', size: 13 })
+    gsap.fromTo(formula, { opacity: 0 }, { opacity: 1, duration: 0.5, delay: 0.4 })
+
+    const formula2 = addText(labelsGroup, 200, 220,
+      `总和变为：${sum} + ${diff} = ${sum + diff}`, { fill: '#2c3e50', size: 13 })
+    gsap.fromTo(formula2, { opacity: 0 }, { opacity: 1, duration: 0.5, delay: 0.6 })
   }
 
+  // step 4: 计算大数
   if (step >= 4) {
-    const answerText = addText(labelsGroup, 200, 240, `答案：${props.answer}`, { fill: '#e74c3c', size: 16, weight: 'bold' })
+    const calcLabel = addText(labelsGroup, 200, 245,
+      `${largeName} = (${sum} + ${diff}) ÷ 2 = ${large}`, { fill: '#2c3e50', size: 14, weight: 'bold' })
+    gsap.fromTo(calcLabel, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+  }
+
+  // step 5: 显示答案
+  if (step >= 5) {
+    const answerText = addText(labelsGroup, 200, 270, `答案：${props.answer}`, { fill: '#e74c3c', size: 16, weight: 'bold' })
     gsap.fromTo(answerText, { opacity: 0, scale: 0.5 }, { opacity: 1, scale: 1, duration: 0.6, transformOrigin: 'center' })
   }
 }
