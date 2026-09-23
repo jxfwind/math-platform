@@ -787,50 +787,142 @@ const renderSumDifference = async (step) => {
   }
 }
 
-// 和倍问题
+// 和倍问题 - 上下垂直线段图，体现和与倍的关系
 const renderMultipleRatio = async (step) => {
   await nextTick()
   const scene = svgRef.value.querySelector('.scene')
   if (!scene) return
-  const { q, nums } = parseQuestion()
+  const { q } = parseQuestion()
   const multipleMatch = q.match(/(\d+)倍/)
   const multiple = multipleMatch ? parseInt(multipleMatch[1]) : 3
-  const sumMatch = q.match(/和是(\d+)|共(\d+)|周长是(\d+)/)
-  const sum = sumMatch ? parseInt(sumMatch[1] || sumMatch[2] || sumMatch[3]) : 36
-  const smallValue = sum / (multiple + 1)
+
+  // 判断是否是周长问题（长方形）
+  const isPerimeter = q.includes('周长')
+
+  // 提取数值
+  let sum, actualSum
+  if (isPerimeter) {
+    // 周长问题：周长 = 2 × (长 + 宽)，所以实际和 = 周长 ÷ 2
+    const perimeterMatch = q.match(/周长是(\d+)/)
+    const perimeter = perimeterMatch ? parseInt(perimeterMatch[1]) : 36
+    sum = perimeter
+    actualSum = perimeter / 2
+  } else {
+    const sumMatch = q.match(/和是(\d+)|之和是(\d+)|共(\d+)/)
+    sum = sumMatch ? parseInt(sumMatch[1] || sumMatch[2] || sumMatch[3]) : 36
+    actualSum = sum
+  }
+
+  const smallValue = actualSum / (multiple + 1)
   const largeValue = smallValue * multiple
+
+  // 根据题目内容解析大小两数的名称
+  let smallName = '乙数', largeName = '甲数'
+  if (q.includes('苹果树') && q.includes('梨树')) {
+    smallName = '梨树'
+    largeName = '苹果树'
+  } else if (q.includes('小红') && q.includes('小明')) {
+    smallName = '小明'
+    largeName = '小红'
+  } else if (q.includes('长') && q.includes('宽')) {
+    smallName = '宽'
+    largeName = '长'
+  } else if (q.includes('甲') && q.includes('乙')) {
+    smallName = '乙'
+    largeName = '甲'
+  }
 
   const segmentsGroup = scene.querySelector('.line-segments')
   const labelsGroup = scene.querySelector('.segment-labels')
 
-  if (step >= 1) {
-    const bar1 = createSvgElement('rect', { x: 80, y: 150, width: smallValue * 8, height: 40, fill: '#3498db', rx: 4 })
-    const bar2 = createSvgElement('rect', { x: 80, y: 150, width: largeValue * 8, height: 40, fill: '#e91e63', rx: 4, opacity: 0.7 })
-    segmentsGroup.appendChild(bar1)
-    segmentsGroup.appendChild(bar2)
-    gsap.fromTo([bar1, bar2], { scaleX: 0 }, { scaleX: 1, duration: 0.8, transformOrigin: 'left center' })
-    addText(labelsGroup, 80 + smallValue * 4, 180, '1份', { fill: '#3498db', size: 12 })
-    addText(labelsGroup, 80 + largeValue * 4, 180, `${multiple}份`, { fill: '#e91e63', size: 12 })
+  // 线段图参数
+  const segWidth = 50
+  const segHeight = 24
+  const startX = 60
+  const smallY = 70   // 小数（1份）在上方
+  const largeY = 130  // 大数（N份）在下方
+
+  // step 1: 周长问题先显示周长与长和宽的关系
+  if (step >= 1 && isPerimeter) {
+    const perimeterLabel = addText(labelsGroup, 200, 40,
+      `周长 = 2 × (${largeName} + ${smallName}) = ${sum}厘米`, { fill: '#2c3e50', size: 13, weight: 'bold' })
+    gsap.fromTo(perimeterLabel, { opacity: 0, y: -10 }, { opacity: 1, y: 0, duration: 0.5 })
+
+    const sumLabel = addText(labelsGroup, 200, 60,
+      `所以 ${largeName} + ${smallName} = ${sum} ÷ 2 = ${actualSum}厘米`, { fill: '#f5a623', size: 13, weight: 'bold' })
+    gsap.fromTo(sumLabel, { opacity: 0, y: -10 }, { opacity: 1, y: 0, duration: 0.5, delay: 0.3 })
   }
 
-  if (step >= 2) {
-    const totalLine = createSvgElement('line', {
-      x1: 80, y1: 130, x2: 80 + largeValue * 8, y2: 130,
-      stroke: '#f5a623', 'stroke-width': 2
+  // step 1或2: 画小数（1份）和大数（N份）的线段
+  const drawStep = isPerimeter ? 2 : 1
+  if (step >= drawStep) {
+    // 小数：1段
+    const smallSeg = createSvgElement('rect', {
+      x: startX, y: smallY, width: segWidth, height: segHeight,
+      fill: '#3498db', rx: 4
     })
-    segmentsGroup.appendChild(totalLine)
-    gsap.fromTo(totalLine, { scaleX: 0 }, { scaleX: 1, duration: 0.6, transformOrigin: 'left center' })
-    const label = addText(labelsGroup, 80 + largeValue * 4 / 2, 120, `一共${sum}`, { fill: '#f5a623', size: 13 })
-    gsap.fromTo(label, { opacity: 0, y: -10 }, { opacity: 1, y: 0, duration: 0.5 })
+    segmentsGroup.appendChild(smallSeg)
+    gsap.fromTo(smallSeg, { scaleX: 0 }, { scaleX: 1, duration: 0.5, transformOrigin: 'left center' })
+    addText(labelsGroup, startX + segWidth / 2, smallY - 10, `${smallName}（1份）`, { fill: '#3498db', size: 13 })
+
+    // 大数：N段
+    for (let i = 0; i < multiple; i++) {
+      const seg = createSvgElement('rect', {
+        x: startX + i * segWidth, y: largeY, width: segWidth - 2, height: segHeight,
+        fill: '#e91e63', rx: 4, opacity: 0.85
+      })
+      segmentsGroup.appendChild(seg)
+      gsap.fromTo(seg, { scaleX: 0 }, { scaleX: 1, duration: 0.3, delay: 0.3 + i * 0.15, transformOrigin: 'left center' })
+    }
+    addText(labelsGroup, startX + (multiple * segWidth) / 2, largeY - 10, `${largeName}（${multiple}份）`, { fill: '#e91e63', size: 13 })
   }
 
-  if (step >= 3) {
-    const formula = addText(labelsGroup, 200, 220, `1份 = ${sum} ÷ (${multiple} + 1) = ${smallValue}`, { fill: '#2c3e50', size: 13 })
+  // step 2或3: 标注总份数和"和"
+  const bracketStep = isPerimeter ? 3 : 2
+  if (step >= bracketStep) {
+    // 总份数标注
+    const totalParts = multiple + 1
+    const totalWidth = totalParts * segWidth
+
+    // 画一条括线表示总和
+    const bracketLine = createSvgElement('line', {
+      x1: startX, y1: 170, x2: startX + totalWidth, y2: 170,
+      stroke: '#f5a623', 'stroke-width': 2.5
+    })
+    segmentsGroup.appendChild(bracketLine)
+    gsap.fromTo(bracketLine, { scaleX: 0 }, { scaleX: 1, duration: 0.6, transformOrigin: 'left center' })
+
+    // 括线两端的竖线
+    const leftTick = createSvgElement('line', {
+      x1: startX, y1: 165, x2: startX, y2: 175,
+      stroke: '#f5a623', 'stroke-width': 2.5
+    })
+    const rightTick = createSvgElement('line', {
+      x1: startX + totalWidth, y1: 165, x2: startX + totalWidth, y2: 175,
+      stroke: '#f5a623', 'stroke-width': 2.5
+    })
+    segmentsGroup.appendChild(leftTick)
+    segmentsGroup.appendChild(rightTick)
+    gsap.fromTo([leftTick, rightTick], { opacity: 0 }, { opacity: 1, duration: 0.4, delay: 0.3 })
+
+    // 总份数标签
+    const totalLabel = addText(labelsGroup, startX + totalWidth / 2, 190,
+      `一共 ${totalParts} 份 = ${actualSum}`, { fill: '#f5a623', size: 14, weight: 'bold' })
+    gsap.fromTo(totalLabel, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.5, delay: 0.4 })
+  }
+
+  // step 3或4: 显示计算1份的算式
+  const formulaStep = isPerimeter ? 4 : 3
+  if (step >= formulaStep) {
+    const formula = addText(labelsGroup, 200, 220,
+      `1份（${smallName}）= ${actualSum} ÷ (${multiple} + 1) = ${smallValue}`, { fill: '#2c3e50', size: 14, weight: 'bold' })
     gsap.fromTo(formula, { opacity: 0 }, { opacity: 1, duration: 0.5 })
   }
 
-  if (step >= 4) {
-    const answerText = addText(labelsGroup, 200, 240, `答案：${props.answer}`, { fill: '#e74c3c', size: 16, weight: 'bold' })
+  // step 4或5: 显示答案
+  const answerStep = isPerimeter ? 5 : 4
+  if (step >= answerStep) {
+    const answerText = addText(labelsGroup, 200, 250, `答案：${props.answer}`, { fill: '#e74c3c', size: 16, weight: 'bold' })
     gsap.fromTo(answerText, { opacity: 0, scale: 0.5 }, { opacity: 1, scale: 1, duration: 0.6, transformOrigin: 'center' })
   }
 }
