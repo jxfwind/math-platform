@@ -927,12 +927,12 @@ const renderMultipleRatio = async (step) => {
   }
 }
 
-// 鸡兔同笼
+// 鸡兔同笼 - 展示假设法和替换过程
 const renderChickenRabbit = async (step) => {
   await nextTick()
   const scene = svgRef.value.querySelector('.scene')
   if (!scene) return
-  const { q, nums } = parseQuestion()
+  const { q } = parseQuestion()
   const totalMatch = q.match(/共(\d+)只|共(\d+)辆/)
   const total = totalMatch ? parseInt(totalMatch[1] || totalMatch[2]) : 8
   const legMatch = q.match(/(\d+)条|(\d+)只脚|(\d+)个轮子/)
@@ -941,6 +941,15 @@ const renderChickenRabbit = async (step) => {
   const animalsGroup = scene.querySelector('.animals')
   const labelsGroup = scene.querySelector('.animal-labels')
 
+  // 判断是鸡兔问题还是车辆问题
+  const isVehicle = q.includes('汽车') || q.includes('摩托车')
+  const smallName = isVehicle ? '摩托车' : '鸡'
+  const largeName = isVehicle ? '汽车' : '兔'
+  const smallEmoji = isVehicle ? '🏍️' : '🐔'
+  const largeEmoji = isVehicle ? '🚗' : '🐰'
+  const legUnit = isVehicle ? '个轮子' : '条腿'
+
+  // step 1: 假设全是鸡/摩托车
   if (step >= 1) {
     for (let i = 0; i < total; i++) {
       const x = 80 + (i % 4) * 80
@@ -948,32 +957,54 @@ const renderChickenRabbit = async (step) => {
       const g = createSvgElement('g', {})
       const circle = createSvgElement('circle', { cx: x, cy: y, r: 25, fill: '#f5a623' })
       const text = createSvgElement('text', { x: x, y: y + 5, 'text-anchor': 'middle', fill: 'white', 'font-size': 20 })
-      text.textContent = '🐔'
+      text.textContent = smallEmoji
       g.appendChild(circle)
       g.appendChild(text)
       animalsGroup.appendChild(g)
       gsap.fromTo(g, { opacity: 0, scale: 0 }, { opacity: 1, scale: 1, duration: 0.4, delay: i * 0.05, transformOrigin: 'center' })
     }
-    addText(labelsGroup, 200, 200, `假设${total}只全是鸡`, { fill: '#2c3e50', size: 14 })
+    addText(labelsGroup, 200, 200, `假设${total}只全是${smallName}`, { fill: '#2c3e50', size: 14 })
   }
 
+  // step 2: 计算假设下的腿数
   if (step >= 2) {
     const expectedLegs = total * 2
-    const label = addText(labelsGroup, 200, 225, `鸡腿有 ${total} × 2 = ${expectedLegs} 条`, { fill: '#f5a623', size: 13 })
+    const label = addText(labelsGroup, 200, 225, `${smallName}有 ${total} × 2 = ${expectedLegs} ${legUnit}`, { fill: '#f5a623', size: 13 })
     gsap.fromTo(label, { opacity: 0 }, { opacity: 1, duration: 0.5 })
   }
 
+  // step 3: 显示实际与假设的差距，并展示替换过程
   if (step >= 3) {
     const diff = legs - total * 2
-    const label = addText(labelsGroup, 200, 245, `实际${legs}条，少${diff}条`, { fill: '#e74c3c', size: 13 })
+    const label = addText(labelsGroup, 200, 245, `实际${legs}${legUnit}，少了${diff}${legUnit}`, { fill: '#e74c3c', size: 13 })
     gsap.fromTo(label, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+
+    // 展示替换概念：把一只鸡换成兔，多2条腿
+    const swapLabel = addText(labelsGroup, 200, 265, `每把一只${smallName}换成${largeName}，多2${legUnit}`, { fill: '#2c3e50', size: 12 })
+    gsap.fromTo(swapLabel, { opacity: 0 }, { opacity: 1, duration: 0.5, delay: 0.3 })
+
+    // 动画演示替换过程：将部分鸡变成兔
+    const rabbitCount = diff / 2
+    const animalGroups = animalsGroup.querySelectorAll('g')
+    for (let i = 0; i < rabbitCount && i < animalGroups.length; i++) {
+      const g = animalGroups[i]
+      const text = g.querySelector('text')
+      const circle = g.querySelector('circle')
+      // 变成兔子的颜色
+      gsap.to(circle, { fill: '#e91e63', duration: 0.5, delay: 0.5 + i * 0.3 })
+      // 更换emoji
+      setTimeout(() => {
+        text.textContent = largeEmoji
+      }, 500 + i * 300)
+    }
   }
 
+  // step 4: 显示答案
   if (step >= 4) {
     const diff = legs - total * 2
     const rabbitCount = diff / 2
     const chickenCount = total - rabbitCount
-    const answerText = addText(labelsGroup, 200, 265, `兔${rabbitCount}只，鸡${chickenCount}只`, { fill: '#e74c3c', size: 16, weight: 'bold' })
+    const answerText = addText(labelsGroup, 200, 285, `${largeName}${rabbitCount}只，${smallName}${chickenCount}只`, { fill: '#e74c3c', size: 16, weight: 'bold' })
     gsap.fromTo(answerText, { opacity: 0, scale: 0.5 }, { opacity: 1, scale: 1, duration: 0.6, transformOrigin: 'center' })
   }
 }
