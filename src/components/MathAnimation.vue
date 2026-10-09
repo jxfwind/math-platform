@@ -94,6 +94,51 @@
           <text x="200" y="30" text-anchor="middle" fill="#2c3e50" font-size="16" font-weight="bold">和倍问题</text>
           <g class="line-segments"></g><g class="segment-labels"></g>
         </g>
+
+        <g v-if="animationType === 'period'" class="scene">
+          <text x="200" y="30" text-anchor="middle" fill="#2c3e50" font-size="16" font-weight="bold">周期问题</text>
+          <g class="period-items"></g><g class="period-labels"></g>
+        </g>
+
+        <g v-if="animationType === 'unit-rate'" class="scene">
+          <text x="200" y="30" text-anchor="middle" fill="#2c3e50" font-size="16" font-weight="bold">归一问题</text>
+          <g class="unit-groups"></g><g class="unit-labels"></g>
+        </g>
+
+        <g v-if="animationType === 'reverse'" class="scene">
+          <text x="200" y="30" text-anchor="middle" fill="#2c3e50" font-size="16" font-weight="bold">还原问题（倒推法）</text>
+          <g class="reverse-flow"></g><g class="reverse-labels"></g>
+        </g>
+
+        <g v-if="animationType === 'profit-loss'" class="scene">
+          <text x="200" y="30" text-anchor="middle" fill="#2c3e50" font-size="16" font-weight="bold">盈亏问题</text>
+          <g class="pl-items"></g><g class="pl-labels"></g>
+        </g>
+
+        <g v-if="animationType === 'overlap'" class="scene">
+          <text x="200" y="30" text-anchor="middle" fill="#2c3e50" font-size="16" font-weight="bold">重叠问题</text>
+          <g class="overlap-shapes"></g><g class="overlap-labels"></g>
+        </g>
+
+        <g v-if="animationType === 'substitution'" class="scene">
+          <text x="200" y="30" text-anchor="middle" fill="#2c3e50" font-size="16" font-weight="bold">等量代换</text>
+          <g class="sub-items"></g><g class="sub-labels"></g>
+        </g>
+
+        <g v-if="animationType === 'stairs'" class="scene">
+          <text x="200" y="30" text-anchor="middle" fill="#2c3e50" font-size="16" font-weight="bold">间隔问题（锯木头/爬楼梯）</text>
+          <g class="stair-items"></g><g class="stair-labels"></g>
+        </g>
+
+        <g v-if="animationType === 'average'" class="scene">
+          <text x="200" y="30" text-anchor="middle" fill="#2c3e50" font-size="16" font-weight="bold">平均数问题</text>
+          <g class="avg-bars"></g><g class="avg-labels"></g>
+        </g>
+
+        <g v-if="animationType === 'counting'" class="scene">
+          <text x="200" y="30" text-anchor="middle" fill="#2c3e50" font-size="16" font-weight="bold">数图形问题</text>
+          <g class="count-shapes"></g><g class="count-labels"></g>
+        </g>
       </svg>
     </div>
     <div class="step-text">{{ currentStepText }}</div>
@@ -1088,6 +1133,823 @@ const renderChickenRabbitStamp = async (step) => {
   }
 }
 
+
+// ========== 新题型动画 ==========
+
+// 通用：显示答案
+const showAnswer = (labelsGroup, y) => {
+  const answerText = addText(labelsGroup, 200, y, `答案：${props.answer}`, { fill: '#e74c3c', size: 16, weight: 'bold' })
+  gsap.fromTo(answerText, { opacity: 0, scale: 0.5 }, { opacity: 1, scale: 1, duration: 0.6, transformOrigin: 'center' })
+}
+
+// 周期问题
+const renderPeriod = async (step) => {
+  await nextTick()
+  const scene = svgRef.value.querySelector('.scene')
+  if (!scene) return
+  const { q } = parseQuestion()
+  const itemsGroup = scene.querySelector('.period-items')
+  const labelsGroup = scene.querySelector('.period-labels')
+  const isSum = q.includes('和是多少')
+  const isCount = q.includes('报几')
+
+  // 解析周期模式
+  let pattern = []
+  let periodLen = 0
+  const colorMap = { '红': '#e74c3c', '黄': '#f1c40f', '蓝': '#3498db', '绿': '#2ecc71' }
+
+  if (q.includes('红、黄、蓝、绿')) {
+    pattern = ['红', '黄', '蓝', '绿']
+  } else if (q.includes('3面红旗、2面黄旗')) {
+    pattern = ['红', '红', '红', '黄', '黄']
+  } else if (q.includes('1盏红灯、2盏绿灯、3盏黄灯')) {
+    pattern = ['红', '绿', '绿', '黄', '黄', '黄']
+  } else if (isSum) {
+    pattern = ['2', '5', '7']
+  } else if (isCount) {
+    pattern = ['1', '2', '3', '4']
+  }
+  periodLen = pattern.length || 4
+
+  // 求第N个
+  const posMatch = q.match(/第(\d+)/)
+  const pos = posMatch ? parseInt(posMatch[1]) : 38
+
+  // 步骤1：展示一组周期
+  if (step >= 1) {
+    for (let i = 0; i < periodLen; i++) {
+      const x = 60 + i * (280 / Math.max(periodLen - 1, 1))
+      const g = createSvgElement('g', {})
+      const circle = createSvgElement('circle', { cx: x, cy: 90, r: 18, fill: colorMap[pattern[i]] || '#9b59b6' })
+      g.appendChild(circle)
+      const t = createSvgElement('text', { x: x, y: 95, 'text-anchor': 'middle', fill: 'white', 'font-size': 12, 'font-weight': 'bold' })
+      t.textContent = pattern[i]
+      g.appendChild(t)
+      itemsGroup.appendChild(g)
+      gsap.fromTo(g, { opacity: 0, y: -30 }, { opacity: 1, y: 0, duration: 0.5, delay: i * 0.15 })
+    }
+    const label = addText(labelsGroup, 200, 130, `每 ${periodLen} 个为一组，不断重复`, { fill: '#2c3e50', size: 14 })
+    gsap.fromTo(label, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+  }
+
+  // 步骤2：分组除法
+  if (step >= 2) {
+    if (isSum) {
+      const label = addText(labelsGroup, 200, 160, `${pos} ÷ ${periodLen} = ${Math.floor(pos / periodLen)}（组），每组和 ${pattern.map(Number).reduce((a,b)=>a+b,0)}`, { fill: '#f5a623', size: 13 })
+      gsap.fromTo(label, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+    } else {
+      const quotient = Math.floor(pos / periodLen)
+      const remainder = pos % periodLen
+      const label = addText(labelsGroup, 200, 160, `${pos} ÷ ${periodLen} = ${quotient}（组）……${remainder}（个）`, { fill: '#f5a623', size: 14, weight: 'bold' })
+      gsap.fromTo(label, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+      // 高亮余数对应的项
+      if (remainder > 0) {
+        const idx = remainder - 1
+        const x = 60 + idx * (280 / Math.max(periodLen - 1, 1))
+        const ring = createSvgElement('circle', { cx: x, cy: 90, r: 26, fill: 'none', stroke: '#e74c3c', 'stroke-width': 4 })
+        itemsGroup.appendChild(ring)
+        gsap.fromTo(ring, { scale: 0 }, { scale: 1, duration: 0.6, transformOrigin: 'center' })
+      }
+    }
+  }
+
+  // 步骤3：指出余数对应的项 / 总数
+  if (step >= 3) {
+    if (isSum) {
+      const groupSum = pattern.map(Number).reduce((a, b) => a + b, 0)
+      const groups = Math.floor(pos / periodLen)
+      const label = addText(labelsGroup, 200, 190, `总和：${groupSum} × ${groups} = ${groupSum * groups}`, { fill: '#2c3e50', size: 14 })
+      gsap.fromTo(label, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+    } else {
+      const remainder = pos % periodLen
+      const resultIdx = remainder === 0 ? periodLen - 1 : remainder - 1
+      const label = addText(labelsGroup, 200, 190, `余数${remainder === 0 ? '为0就是最后1个' : remainder + '就是每组第' + remainder + '个'} → ${pattern[resultIdx]}`, { fill: '#2c3e50', size: 13 })
+      gsap.fromTo(label, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+    }
+  }
+
+  // 最后：答案
+  const totalStepsLocal = props.steps.length
+  if (step >= totalStepsLocal) {
+    showAnswer(labelsGroup, 225)
+  }
+}
+
+// 归一问题
+const renderUnitRate = async (step) => {
+  await nextTick()
+  const scene = svgRef.value.querySelector('.scene')
+  if (!scene) return
+  const { q, nums } = parseQuestion()
+  const groupsGroup = scene.querySelector('.unit-groups')
+  const labelsGroup = scene.querySelector('.unit-labels')
+
+  // 提取关键数字：通常是 "a个b时间c单位"
+  const aMatch = q.match(/(\d+)(只|台|辆|天|人)/)
+  const a = aMatch ? parseInt(aMatch[1]) : 3
+  const afterA = nums.filter(n => n !== a)
+  const b = afterA[0] || 4
+  const c = afterA[1] || 12
+  // 问题中要求的新数量
+  const targetMatch = q.match(/，(\d+)(只|台|辆|天|人)/)
+  const newA = targetMatch ? parseInt(targetMatch[1]) : null
+
+  // 步骤1：展示总量分布（a行b列的格子）
+  if (step >= 1) {
+    const rows = Math.min(a, 5)
+    const cols = Math.min(b, 6)
+    for (let r = 0; r < rows; r++) {
+      for (let col = 0; col < cols; col++) {
+        const x = 80 + col * 45
+        const y = 70 + r * 32
+        const cell = createSvgElement('rect', { x: x, y: y, width: 38, height: 26, fill: '#3498db', rx: 4, opacity: 0.85 })
+        groupsGroup.appendChild(cell)
+        gsap.fromTo(cell, { opacity: 0, scale: 0 }, { opacity: 0.85, scale: 1, duration: 0.3, delay: (r * cols + col) * 0.03, transformOrigin: 'center' })
+      }
+    }
+    addText(labelsGroup, 200, 70 + rows * 32 + 10, `${a}行 × ${b}列，共 ${c} 个总量`, { fill: '#2c3e50', size: 13 })
+  }
+
+  // 步骤2：先除以a → 一行多少
+  if (step >= 2) {
+    const perRow = c / a
+    const label = addText(labelsGroup, 200, 210, `先求每行：${c} ÷ ${a} = ${perRow}`, { fill: '#f5a623', size: 14, weight: 'bold' })
+    gsap.fromTo(label, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+    // 高亮第一行
+    const firstRow = groupsGroup.querySelectorAll('rect')
+    for (let i = 0; i < Math.min(b, 6); i++) {
+      if (firstRow[i]) gsap.to(firstRow[i], { fill: '#f5a623', duration: 0.5 })
+    }
+  }
+
+  // 步骤3：再除以b → 一格多少
+  if (step >= 3) {
+    const perCell = c / a / b
+    const label = addText(labelsGroup, 200, 235, `再求每格（1份）：${c / a} ÷ ${b} = ${perCell}`, { fill: '#f5a623', size: 14, weight: 'bold' })
+    gsap.fromTo(label, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+    const firstCell = groupsGroup.querySelector('rect')
+    if (firstCell) {
+      gsap.to(firstCell, { fill: '#e74c3c', scale: 1.2, duration: 0.5, transformOrigin: 'center' })
+    }
+  }
+
+  // 最后：答案
+  if (step >= props.steps.length) {
+    showAnswer(labelsGroup, 258)
+  }
+}
+
+// 还原问题
+const renderReverse = async (step) => {
+  await nextTick()
+  const scene = svgRef.value.querySelector('.scene')
+  if (!scene) return
+  const { q } = parseQuestion()
+  const flowGroup = scene.querySelector('.reverse-flow')
+  const labelsGroup = scene.querySelector('.reverse-labels')
+
+  // 解析正向操作序列和结果
+  const resultMatch = q.match(/结果(?:是|为)(\d+)|还剩(\d+)/)
+  const result = resultMatch ? parseInt(resultMatch[1] || resultMatch[2]) : 24
+  const addMatch = q.match(/加上(\d+)/)
+  const mulMatch = q.match(/乘(\d+)/)
+  const subMatch = q.match(/减去(\d+)|花了(\d+)|卖出(\d+)/)
+  const divMatch = q.match(/除以(\d+)/)
+  const halfMatch = q.match(/一半/)
+
+  // 构建正向操作链
+  const forwardOps = []
+  const qi = q
+  if (addMatch) forwardOps.push({ op: '+', val: parseInt(addMatch[1]), pos: qi.indexOf('加上') })
+  if (mulMatch) forwardOps.push({ op: '×', val: parseInt(mulMatch[1]), pos: qi.indexOf('乘') })
+  if (subMatch) {
+    const v = parseInt(subMatch[1] || subMatch[2] || subMatch[3])
+    // 取匹配子串的真实位置，避免"先花了一半"干扰
+    const pos = qi.indexOf(subMatch[0])
+    forwardOps.push({ op: '-', val: v, pos })
+  }
+  if (divMatch) forwardOps.push({ op: '÷', val: parseInt(divMatch[1]), pos: qi.indexOf('除以') })
+  if (halfMatch) forwardOps.push({ op: '÷', val: 2, pos: qi.indexOf('一半'), label: '一半' })
+  forwardOps.sort((x, y) => x.pos - y.pos)
+
+  const invMap = { '+': '-', '-': '+', '×': '÷', '÷': '×' }
+
+  // 计算反向值（正向是 + 就倒退用 -，正向 × 就倒退用 ÷）
+  const reverseVals = []
+  let cur = result
+  for (let i = forwardOps.length - 1; i >= 0; i--) {
+    const f = forwardOps[i]
+    const invOp = invMap[f.op]
+    let prev
+    if (f.op === '+') prev = cur - f.val
+    else if (f.op === '-') prev = cur + f.val
+    else if (f.op === '×') prev = cur / f.val
+    else prev = cur * f.val
+    reverseVals.push({ from: cur, op: invOp, val: f.val, to: prev })
+    cur = prev
+  }
+
+  // 步骤1：显示结果（从右边开始）
+  if (step >= 1) {
+    const boxX = 340
+    const box = createSvgElement('rect', { x: boxX - 25, y: 100, width: 50, height: 36, fill: '#e74c3c', rx: 8 })
+    flowGroup.appendChild(box)
+    gsap.fromTo(box, { opacity: 0, scale: 0 }, { opacity: 1, scale: 1, duration: 0.5, transformOrigin: 'center' })
+    addText(flowGroup, boxX, 124, String(result), { fill: 'white', size: 16, weight: 'bold' })
+    const label = addText(labelsGroup, 200, 170, '从最后的结果开始，倒着往回推', { fill: '#2c3e50', size: 14 })
+    gsap.fromTo(label, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+  }
+
+  // 步骤2..n：逐步反向
+  reverseVals.forEach((rv, i) => {
+    if (step >= i + 2) {
+      const x = 340 - (i + 1) * 85
+      // 箭头
+      const arrow = createSvgElement('line', {
+        x1: x + 55, y1: 118, x2: x + 28, y2: 118,
+        stroke: '#f5a623', 'stroke-width': 3, 'marker-end': 'url(#arrow)'
+      })
+      flowGroup.appendChild(arrow)
+      gsap.fromTo(arrow, { scaleX: 0 }, { scaleX: 1, duration: 0.5, transformOrigin: 'right center' })
+      addText(flowGroup, x + 41, 105, `${rv.op}${rv.val}`, { fill: '#f5a623', size: 12, weight: 'bold' })
+      // 新框
+      const box = createSvgElement('rect', { x: x - 25, y: 100, width: 50, height: 36, fill: i === reverseVals.length - 1 ? '#2ecc71' : '#3498db', rx: 8 })
+      flowGroup.appendChild(box)
+      gsap.fromTo(box, { opacity: 0, scale: 0 }, { opacity: 1, scale: 1, duration: 0.5, delay: 0.2, transformOrigin: 'center' })
+      addText(flowGroup, x, 124, String(rv.to), { fill: 'white', size: 16, weight: 'bold' })
+    }
+  })
+
+  // 最后：答案
+  if (step >= props.steps.length) {
+    showAnswer(labelsGroup, 200)
+  }
+}
+
+// 盈亏问题
+const renderProfitLoss = async (step) => {
+  await nextTick()
+  const scene = svgRef.value.querySelector('.scene')
+  if (!scene) return
+  const { q } = parseQuestion()
+  const itemsGroup = scene.querySelector('.pl-items')
+  const labelsGroup = scene.querySelector('.pl-labels')
+  const isWell = q.includes('井')
+
+  // 提取两种分法
+  const perMatch = [...q.matchAll(/每人?分?(\d+)|每(?:条船|行)(?:坐|站)(\d+)|对折|三折/g)]
+  let a = 3, b = 4
+  const perNums = []
+  const m1 = q.match(/每人(\d+)|每(?:条船|行)(?:坐|站)(\d+)/g)
+  if (m1) perNums.push(...m1.map(s => parseInt(extractNumbers(s)[0])))
+  if (perNums.length >= 2) { a = perNums[0]; b = perNums[1] }
+
+  const moreMatch = q.match(/多(?:出|)(\d+)|多(\d+)米/)
+  const lessMatch = q.match(/少(\d+)/)
+  const more = moreMatch ? parseInt(moreMatch[1] || moreMatch[2]) : 6
+  const less = lessMatch ? parseInt(lessMatch[1]) : 2
+
+  // 步骤1：第一种分法图示
+  if (step >= 1 && !isWell) {
+    // 画几个人 + 每人分a个 + 多出来的
+    for (let i = 0; i < 4; i++) {
+      const x = 70 + i * 60
+      const person = createSvgElement('circle', { cx: x, cy: 90, r: 16, fill: '#3498db' })
+      itemsGroup.appendChild(person)
+      gsap.fromTo(person, { opacity: 0, scale: 0 }, { opacity: 1, scale: 1, duration: 0.4, delay: i * 0.1, transformOrigin: 'center' })
+      addText(itemsGroup, x, 95, `${a}`, { fill: 'white', size: 13, weight: 'bold' })
+    }
+    addText(itemsGroup, 200, 130, `每人${a}个 → 多出${more}个`, { fill: '#2ecc71', size: 14, weight: 'bold' })
+    const moreBox = createSvgElement('rect', { x: 320, y: 75, width: 50, height: 30, fill: '#2ecc71', rx: 6 })
+    itemsGroup.appendChild(moreBox)
+    gsap.fromTo(moreBox, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+    addText(itemsGroup, 345, 95, `+${more}`, { fill: 'white', size: 13, weight: 'bold' })
+  }
+  if (step >= 1 && isWell) {
+    addText(itemsGroup, 200, 90, `对折：绳长 = 2 × 井深 + ${more} × 2`, { fill: '#2c3e50', size: 13 })
+    gsap.fromTo(itemsGroup.lastChild, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+  }
+
+  // 步骤2：第二种分法图示
+  if (step >= 2 && !isWell) {
+    for (let i = 0; i < 4; i++) {
+      const x = 70 + i * 60
+      const person = createSvgElement('circle', { cx: x, cy: 165, r: 16, fill: '#9b59b6' })
+      itemsGroup.appendChild(person)
+      gsap.fromTo(person, { opacity: 0, scale: 0 }, { opacity: 1, scale: 1, duration: 0.4, delay: i * 0.1, transformOrigin: 'center' })
+      addText(itemsGroup, x, 170, `${b}`, { fill: 'white', size: 13, weight: 'bold' })
+    }
+    addText(itemsGroup, 200, 205, `每人${b}个 → 少${less}个`, { fill: '#e74c3c', size: 14, weight: 'bold' })
+    const lessBox = createSvgElement('rect', { x: 320, y: 150, width: 50, height: 30, fill: '#e74c3c', rx: 6 })
+    itemsGroup.appendChild(lessBox)
+    gsap.fromTo(lessBox, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+    addText(itemsGroup, 345, 170, `-${less}`, { fill: 'white', size: 13, weight: 'bold' })
+  }
+  if (step >= 2 && isWell) {
+    addText(itemsGroup, 200, 120, `三折：绳长 = 3 × 井深 + ${less} × 3`, { fill: '#2c3e50', size: 13 })
+    gsap.fromTo(itemsGroup.lastChild, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+  }
+
+  // 步骤3：相差 = 盈 + 亏
+  if (step >= 3) {
+    if (isWell) {
+      const label = addText(labelsGroup, 200, 160, `1个井深 = ${more * 2} - ${less * 3} = ${more * 2 - less * 3}（米）`, { fill: '#f5a623', size: 14, weight: 'bold' })
+      gsap.fromTo(label, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+    } else {
+      const diff = more + less
+      const label = addText(labelsGroup, 200, 230, `相差：${more} + ${less} = ${diff}，每人差${b - a} → ${diff} ÷ ${b - a} = ${diff / (b - a)}`, { fill: '#f5a623', size: 13, weight: 'bold' })
+      gsap.fromTo(label, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+    }
+  }
+
+  // 最后：答案
+  if (step >= props.steps.length) {
+    showAnswer(labelsGroup, 255)
+  }
+}
+
+// 重叠问题
+const renderOverlap = async (step) => {
+  await nextTick()
+  const scene = svgRef.value.querySelector('.scene')
+  if (!scene) return
+  const { q } = parseQuestion()
+  const shapesGroup = scene.querySelector('.overlap-shapes')
+  const labelsGroup = scene.querySelector('.overlap-labels')
+  const isBoard = q.includes('木板') || q.includes('纸条')
+  const isLine = q.includes('排第')
+
+  if (isLine) {
+    // 排队问题：从左数第a，从右数第b
+    const leftMatch = q.match(/从左数.*?第(\d+)/)
+    const rightMatch = q.match(/从右数.*?第(\d+)/)
+    const L = leftMatch ? parseInt(leftMatch[1]) : 8
+    const R = rightMatch ? parseInt(rightMatch[1]) : 9
+    const total = L + R - 1
+
+    if (step >= 1) {
+      // 画一排圆点
+      for (let i = 0; i < total; i++) {
+        const x = 50 + i * (300 / (total - 1))
+        const isMe = i === L - 1
+        const dot = createSvgElement('circle', { cx: x, cy: 110, r: isMe ? 14 : 10, fill: isMe ? '#e74c3c' : '#3498db' })
+        shapesGroup.appendChild(dot)
+        gsap.fromTo(dot, { opacity: 0, y: -20 }, { opacity: 1, y: 0, duration: 0.4, delay: i * 0.05 })
+      }
+      addText(labelsGroup, 200, 145, `红色是小明：从左数第${L}，从右数第${R}`, { fill: '#2c3e50', size: 13 })
+      gsap.fromTo(labelsGroup.lastChild, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+    }
+    if (step >= 2) {
+      const label = addText(labelsGroup, 200, 175, `${L} + ${R} = ${L + R}，小明被数了2次`, { fill: '#f5a623', size: 14, weight: 'bold' })
+      gsap.fromTo(label, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+    }
+    if (step >= 3) {
+      const label = addText(labelsGroup, 200, 205, `${L + R} - 1 = ${total}（人）`, { fill: '#2c3e50', size: 14 })
+      gsap.fromTo(label, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+    }
+    if (step >= props.steps.length) showAnswer(labelsGroup, 232)
+    return
+  }
+
+  if (isBoard) {
+    // 木板/纸条重叠
+    const lenMatch = q.match(/长(\d+)厘米/)
+    const len = lenMatch ? parseInt(lenMatch[1]) : 40
+    const totalMatch = q.match(/总长?(\d+)厘米|长(\d+)厘米，中间|钉在一起后总长?(\d+)/)
+    let combined = 70
+    const combMatch = q.match(/钉在一起后总长?(\d+)|粘成一根长(\d+)/)
+    if (combMatch) combined = parseInt(combMatch[1] || combMatch[2])
+    const overlapLen = len * 2 - combined
+    const scale = 300 / (len * 2)
+
+    if (step >= 1) {
+      // 画两块木板（重叠）
+      const w1 = len * scale
+      const w2 = len * scale
+      const x1 = 50, x2 = 50 + (combined * scale)
+      const b1 = createSvgElement('rect', { x: x1, y: 90, width: w1, height: 30, fill: '#3498db', rx: 4, opacity: 0.7 })
+      const b2 = createSvgElement('rect', { x: x2 - w2, y: 130, width: w2, height: 30, fill: '#e91e63', rx: 4, opacity: 0.7 })
+      shapesGroup.appendChild(b1)
+      shapesGroup.appendChild(b2)
+      gsap.fromTo(b1, { x: -100 }, { x: 0, duration: 0.8 })
+      gsap.fromTo(b2, { x: 100 }, { x: 0, duration: 0.8 })
+      addText(labelsGroup, x1 + w1 / 2, 110, `${len}cm`, { fill: 'white', size: 12, weight: 'bold' })
+      addText(labelsGroup, x2 - w2 / 2, 150, `${len}cm`, { fill: 'white', size: 12, weight: 'bold' })
+    }
+    if (step >= 2) {
+      const label = addText(labelsGroup, 200, 185, `不重叠：${len} + ${len} = ${len * 2}cm，实际${combined}cm`, { fill: '#f5a623', size: 13, weight: 'bold' })
+      gsap.fromTo(label, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+    }
+    if (step >= 3) {
+      const label = addText(labelsGroup, 200, 210, `重叠：${len * 2} - ${combined} = ${overlapLen}（厘米）`, { fill: '#2c3e50', size: 14 })
+      gsap.fromTo(label, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+    }
+    if (step >= props.steps.length) showAnswer(labelsGroup, 235)
+    return
+  }
+
+  // 容斥问题（两个圆）
+  const totalMatch = q.match(/有(\d+)人|全班(\d+)人/)
+  const total = totalMatch ? parseInt(totalMatch[1] || totalMatch[2]) : 30
+  const aMatch = q.match(/美术班的有(\d+)|会游泳的有(\d+)|参加美术班(\d+)/)
+  const bMatch = q.match(/音乐班的有(\d+)|会骑自行车的有(\d+)|参加音乐班(\d+)/)
+  const bothMatch = q.match(/都参加的有(\d+)|两样都会的有(\d+)|都参加(\d+)/)
+  const A = aMatch ? parseInt(aMatch[1] || aMatch[2] || aMatch[3]) : 18
+  const B = bMatch ? parseInt(bMatch[1] || bMatch[2] || bMatch[3]) : 15
+  const BOTH = bothMatch ? parseInt(bothMatch[1] || bothMatch[2] || bothMatch[3]) : 8
+
+  if (step >= 1) {
+    // 画两个重叠的圆
+    const c1 = createSvgElement('circle', { cx: 150, cy: 120, r: 60, fill: '#3498db', opacity: 0.5 })
+    const c2 = createSvgElement('circle', { cx: 240, cy: 120, r: 60, fill: '#e91e63', opacity: 0.5 })
+    shapesGroup.appendChild(c1)
+    shapesGroup.appendChild(c2)
+    gsap.fromTo(c1, { x: -80, opacity: 0 }, { x: 0, opacity: 0.5, duration: 0.8 })
+    gsap.fromTo(c2, { x: 80, opacity: 0 }, { x: 0, opacity: 0.5, duration: 0.8 })
+    addText(shapesGroup, 130, 100, `${A}人`, { fill: '#2c3e50', size: 13, weight: 'bold' })
+    addText(shapesGroup, 260, 100, `${B}人`, { fill: '#2c3e50', size: 13, weight: 'bold' })
+  }
+  if (step >= 2) {
+    // 高亮中间重叠
+    const mid = addText(shapesGroup, 195, 125, `${BOTH}人`, { fill: '#e74c3c', size: 14, weight: 'bold' })
+    gsap.fromTo(mid, { opacity: 0, scale: 0 }, { opacity: 1, scale: 1, duration: 0.6, transformOrigin: 'center' })
+    const label = addText(labelsGroup, 200, 195, `中间重叠的${BOTH}人被数了2次，要减1次`, { fill: '#f5a623', size: 13 })
+    gsap.fromTo(label, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+  }
+  if (step >= 3) {
+    const label = addText(labelsGroup, 200, 220, `参加人数：${A} + ${B} - ${BOTH} = ${A + B - BOTH}（人）`, { fill: '#2c3e50', size: 14, weight: 'bold' })
+    gsap.fromTo(label, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+  }
+  if (step >= props.steps.length) {
+    if (q.includes('没参加') || q.includes('不会')) {
+      const label = addText(labelsGroup, 200, 245, `没参加：${total} - ${A + B - BOTH} = ${total - (A + B - BOTH)}（人）`, { fill: '#2c3e50', size: 13 })
+      gsap.fromTo(label, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+      showAnswer(labelsGroup, 268)
+    } else {
+      showAnswer(labelsGroup, 245)
+    }
+  }
+}
+
+// 等量代换
+const renderSubstitution = async (step) => {
+  await nextTick()
+  const scene = svgRef.value.querySelector('.scene')
+  if (!scene) return
+  const { q } = parseQuestion()
+  const itemsGroup = scene.querySelector('.sub-items')
+  const labelsGroup = scene.querySelector('.sub-labels')
+
+  // 解析代换链：A = a个B，B = b个C
+  const eqMatch = [...q.matchAll(/(\d+)(只羊|个西瓜|支钢笔|○).*?(?:等于|可以换)(\d+)(只兔|个菠萝|支铅笔|个苹果|△)/g)]
+
+  // 通用：画天平两端
+  if (step >= 1) {
+    // 画天平
+    const beam = createSvgElement('line', { x1: 100, y1: 110, x2: 300, y2: 110, stroke: '#7f8c8d', 'stroke-width': 5 })
+    const pillar = createSvgElement('line', { x1: 200, y1: 110, x2: 200, y2: 180, stroke: '#7f8c8d', 'stroke-width': 5 })
+    const base = createSvgElement('line', { x1: 170, y1: 180, x2: 230, y2: 180, stroke: '#7f8c8d', 'stroke-width': 5 })
+    itemsGroup.appendChild(beam)
+    itemsGroup.appendChild(pillar)
+    itemsGroup.appendChild(base)
+    gsap.fromTo([beam, pillar, base], { opacity: 0 }, { opacity: 1, duration: 0.6 })
+    // 左盘右盘
+    const pan1 = createSvgElement('ellipse', { cx: 100, cy: 130, rx: 35, ry: 10, fill: '#3498db', opacity: 0.8 })
+    const pan2 = createSvgElement('ellipse', { cx: 300, cy: 130, rx: 35, ry: 10, fill: '#e91e63', opacity: 0.8 })
+    itemsGroup.appendChild(pan1)
+    itemsGroup.appendChild(pan2)
+    gsap.fromTo([pan1, pan2], { scale: 0 }, { scale: 1, duration: 0.5, delay: 0.3, transformOrigin: 'center' })
+  }
+
+  if (step >= 2) {
+    // 显示第一个等式
+    const nums = extractNumbers(q)
+    const first = nums[0] || 1
+    const second = nums[1] || 2
+    const label = addText(labelsGroup, 200, 55, `${first}个 → 换 ${second}个`, { fill: '#f5a623', size: 14, weight: 'bold' })
+    gsap.fromTo(label, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+  }
+
+  if (step >= 3) {
+    // 显示第二个等式（换算）
+    const nums = extractNumbers(q)
+    const second = nums[1] || 2
+    const third = nums[2] || 3
+    const result = second * third
+    const label = addText(labelsGroup, 200, 80, `${second}个 → 每个再换${third} → ${second} × ${third} = ${result}`, { fill: '#f5a623', size: 13 })
+    gsap.fromTo(label, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+  }
+
+  if (step >= props.steps.length) {
+    showAnswer(labelsGroup, 215)
+  }
+}
+
+// 爬楼梯与锯木头（间隔问题）
+const renderStairs = async (step) => {
+  await nextTick()
+  const scene = svgRef.value.querySelector('.scene')
+  if (!scene) return
+  const { q, nums } = parseQuestion()
+  const itemsGroup = scene.querySelector('.stair-items')
+  const labelsGroup = scene.querySelector('.stair-labels')
+  const isClock = q.includes('敲')
+  const isStair = q.includes('楼')
+
+  // 目标段数 / 楼层 / 敲几下
+  let from = 4, to = 7
+  const n1 = nums[0] || 4
+  const n2 = nums[1] || 6
+  const n3 = nums[2] || 7
+  from = n1
+  const totalTime = n2
+  to = n3
+  const cuts1 = from - 1
+  const perCut = totalTime / cuts1
+  const cuts2 = to - 1
+
+  if (isClock) {
+    // 时钟敲钟：画钟点
+    if (step >= 1) {
+      for (let i = 0; i < from; i++) {
+        const x = 80 + i * 80
+        const bell = createSvgElement('circle', { cx: x, cy: 100, r: 18, fill: '#f5a623' })
+        itemsGroup.appendChild(bell)
+        gsap.fromTo(bell, { opacity: 0, scale: 0 }, { opacity: 1, scale: 1, duration: 0.4, delay: i * 0.2, transformOrigin: 'center' })
+        addText(itemsGroup, x, 105, '🔔', { fill: 'white', size: 14 })
+      }
+    }
+    if (step >= 2) {
+      // 画间隔
+      for (let i = 0; i < from - 1; i++) {
+        const x1 = 98 + i * 80
+        const line = createSvgElement('line', { x1: x1, y1: 100, x2: x1 + 44, y2: 100, stroke: '#e74c3c', 'stroke-width': 4 })
+        itemsGroup.appendChild(line)
+        gsap.fromTo(line, { scaleX: 0 }, { scaleX: 1, duration: 0.5, delay: i * 0.2, transformOrigin: 'left center' })
+      }
+      const label = addText(labelsGroup, 200, 140, `敲${from}下，只有${from - 1}个间隔`, { fill: '#e74c3c', size: 14, weight: 'bold' })
+      gsap.fromTo(label, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+    }
+    if (step >= 3) {
+      const label = addText(labelsGroup, 200, 170, `每个间隔：${totalTime} ÷ ${cuts1} = ${perCut}（秒）`, { fill: '#f5a623', size: 14 })
+      gsap.fromTo(label, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+    }
+    if (step >= 4) {
+      const label = addText(labelsGroup, 200, 200, `敲${to}下有${cuts2}个间隔：${perCut} × ${cuts2} = ${perCut * cuts2}（秒）`, { fill: '#2c3e50', size: 14, weight: 'bold' })
+      gsap.fromTo(label, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+    }
+    if (step >= props.steps.length) showAnswer(labelsGroup, 230)
+    return
+  }
+
+  if (isStair) {
+    // 爬楼梯：画楼梯
+    if (step >= 1) {
+      for (let i = 0; i < to; i++) {
+        const x = 60 + i * 45
+        const h = 20 + i * 18
+        const stair = createSvgElement('rect', { x: x, y: 200 - h, width: 40, height: h, fill: i < from ? '#3498db' : '#95a5a6', rx: 3 })
+        itemsGroup.appendChild(stair)
+        gsap.fromTo(stair, { scaleY: 0 }, { scaleY: 1, duration: 0.4, delay: i * 0.08, transformOrigin: 'bottom' })
+        addText(itemsGroup, x + 20, 195, `${i + 1}楼`, { fill: '#2c3e50', size: 10 })
+      }
+    }
+    if (step >= 2) {
+      const label = addText(labelsGroup, 200, 90, `1楼到${from}楼，爬了${from - 1}层`, { fill: '#e74c3c', size: 14, weight: 'bold' })
+      gsap.fromTo(label, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+    }
+    if (step >= 3) {
+      const label = addText(labelsGroup, 200, 115, `每层：${totalTime} ÷ ${cuts1} = ${perCut}（秒）`, { fill: '#f5a623', size: 14 })
+      gsap.fromTo(label, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+    }
+    if (step >= 4) {
+      const label = addText(labelsGroup, 200, 140, `1楼到${to}楼：${perCut} × ${cuts2} = ${perCut * cuts2}（秒）`, { fill: '#2c3e50', size: 14, weight: 'bold' })
+      gsap.fromTo(label, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+    }
+    if (step >= props.steps.length) showAnswer(labelsGroup, 230)
+    return
+  }
+
+  // 锯木头：画木头和锯口
+  if (step >= 1) {
+    const wood = createSvgElement('rect', { x: 60, y: 90, width: 280, height: 36, fill: '#d4a26a', rx: 6 })
+    itemsGroup.appendChild(wood)
+    gsap.fromTo(wood, { scaleX: 0 }, { scaleX: 1, duration: 0.8, transformOrigin: 'left center' })
+  }
+  if (step >= 2) {
+    // 画 from-1 个锯口
+    for (let i = 1; i < from; i++) {
+      const x = 60 + (i * 280) / from
+      const cut = createSvgElement('line', { x1: x, y1: 84, x2: x, y2: 132, stroke: '#e74c3c', 'stroke-width': 4 })
+      itemsGroup.appendChild(cut)
+      gsap.fromTo(cut, { scaleY: 0 }, { scaleY: 1, duration: 0.4, delay: (i - 1) * 0.2, transformOrigin: 'top' })
+    }
+    const label = addText(labelsGroup, 200, 60, `锯成${from}段，只需锯${cuts1}次`, { fill: '#e74c3c', size: 14, weight: 'bold' })
+    gsap.fromTo(label, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+  }
+  if (step >= 3) {
+    const label = addText(labelsGroup, 200, 155, `每次：${totalTime} ÷ ${cuts1} = ${perCut}（分钟）`, { fill: '#f5a623', size: 14 })
+    gsap.fromTo(label, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+  }
+  if (step >= 4) {
+    const label = addText(labelsGroup, 200, 185, `锯${to}段要锯${cuts2}次：${perCut} × ${cuts2} = ${perCut * cuts2}（分钟）`, { fill: '#2c3e50', size: 14, weight: 'bold' })
+    gsap.fromTo(label, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+  }
+  if (step >= props.steps.length) showAnswer(labelsGroup, 215)
+}
+
+// 平均数问题
+const renderAverage = async (step) => {
+  await nextTick()
+  const scene = svgRef.value.querySelector('.scene')
+  if (!scene) return
+  const { q, nums } = parseQuestion()
+  const barsGroup = scene.querySelector('.avg-bars')
+  const labelsGroup = scene.querySelector('.avg-labels')
+
+  // 提取：n次，平均分a，目标平均分b 或 各项值
+  const nMatch = q.match(/前?(\d+)次|(\d+)个数的平均|(\d+)人/)
+  const n = nMatch ? parseInt(nMatch[1] || nMatch[2] || nMatch[3]) : 3
+  const avgMatch = q.match(/平均(?:分|数|体重|读)?(?:是|达到)(\d+)/g)
+  const avgVals = avgMatch ? avgMatch.map(s => parseInt(extractNumbers(s)[0])) : [90, 92]
+  const avg1 = avgVals[0] || 90
+  const avg2 = avgVals[1] || avg1
+
+  // 步骤1：画n根柱子，高度=avg1
+  if (step >= 1) {
+    for (let i = 0; i < n; i++) {
+      const x = 60 + i * (260 / Math.max(n, 1))
+      const bar = createSvgElement('rect', { x: x, y: 180 - avg1 * 1.4, width: 40, height: avg1 * 1.4, fill: '#3498db', rx: 4, opacity: 0.85 })
+      barsGroup.appendChild(bar)
+      gsap.fromTo(bar, { scaleY: 0 }, { scaleY: 1, duration: 0.5, delay: i * 0.1, transformOrigin: 'bottom' })
+    }
+    addText(labelsGroup, 200, 200, `${n}个的平均数 = ${avg1} → 总和 ${avg1} × ${n} = ${avg1 * n}`, { fill: '#2c3e50', size: 13, weight: 'bold' })
+    gsap.fromTo(labelsGroup.lastChild, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+  }
+
+  // 步骤2：画目标平均线
+  if (step >= 2) {
+    const total2 = avg2 * (n + 1)
+    const need = total2 - avg1 * n
+    const label = addText(labelsGroup, 200, 225, `目标${n + 1}个平均${avg2} → 总${total2}，还需 ${total2} - ${avg1 * n} = ${need}`, { fill: '#f5a623', size: 13, weight: 'bold' })
+    gsap.fromTo(label, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+    // 目标柱
+    const x = 60 + n * (260 / Math.max(n, 1))
+    const bar = createSvgElement('rect', { x: x, y: 180 - need * 1.4, width: 40, height: need * 1.4, fill: '#e74c3c', rx: 4, opacity: 0.85 })
+    barsGroup.appendChild(bar)
+    gsap.fromTo(bar, { scaleY: 0 }, { scaleY: 1, duration: 0.6, transformOrigin: 'bottom' })
+  }
+
+  // 最后：答案
+  if (step >= props.steps.length) {
+    showAnswer(labelsGroup, 250)
+  }
+}
+
+// 数图形问题
+const renderCounting = async (step) => {
+  await nextTick()
+  const scene = svgRef.value.querySelector('.scene')
+  if (!scene) return
+  const { q } = parseQuestion()
+  const shapesGroup = scene.querySelector('.count-shapes')
+  const labelsGroup = scene.querySelector('.count-labels')
+  const isLine = q.includes('线段')
+  const isAngle = q.includes('射线') || q.includes('角')
+  const isTri = q.includes('三角形')
+  const isRect = q.includes('长方形')
+  const isSq = q.includes('田') || q.includes('方格')
+
+  if (isLine) {
+    // 数线段：5个点
+    if (step >= 1) {
+      for (let i = 0; i < 5; i++) {
+        const x = 60 + i * 70
+        const dot = createSvgElement('circle', { cx: x, cy: 120, r: 8, fill: '#3498db' })
+        shapesGroup.appendChild(dot)
+        gsap.fromTo(dot, { opacity: 0, scale: 0 }, { opacity: 1, scale: 1, duration: 0.4, delay: i * 0.1, transformOrigin: 'center' })
+        addText(shapesGroup, x, 145, String(i + 1), { fill: '#2c3e50', size: 12 })
+      }
+    }
+    if (step >= 2) {
+      // 从1号点出发的线段
+      for (let i = 1; i < 5; i++) {
+        const x1 = 60, x2 = 60 + i * 70
+        const line = createSvgElement('line', { x1: x1, y1: 105, x2: x2, y2: 105, stroke: '#e74c3c', 'stroke-width': 2, opacity: 0.6 })
+        shapesGroup.appendChild(line)
+        gsap.fromTo(line, { scaleX: 0 }, { scaleX: 1, duration: 0.3, delay: (i - 1) * 0.15, transformOrigin: 'left center' })
+      }
+      addText(labelsGroup, 200, 170, '从1号点出发：4条', { fill: '#e74c3c', size: 13, weight: 'bold' })
+      gsap.fromTo(labelsGroup.lastChild, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+    }
+    if (step >= 3) {
+      addText(labelsGroup, 200, 195, '2号出发3条，3号出发2条，4号出发1条', { fill: '#f5a623', size: 13 })
+      gsap.fromTo(labelsGroup.lastChild, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+    }
+    if (step >= 4) {
+      addText(labelsGroup, 200, 220, '4 + 3 + 2 + 1 = 10（条）', { fill: '#2c3e50', size: 15, weight: 'bold' })
+      gsap.fromTo(labelsGroup.lastChild, { opacity: 0, scale: 0.5 }, { opacity: 1, scale: 1, duration: 0.6, transformOrigin: 'center' })
+    }
+    if (step >= props.steps.length) showAnswer(labelsGroup, 245)
+    return
+  }
+
+  if (isAngle) {
+    // 数角：从顶点画4条射线
+    if (step >= 1) {
+      for (let i = 0; i < 4; i++) {
+        const angle = (-70 + i * 30) * Math.PI / 180
+        const x2 = 200 + 130 * Math.cos(angle)
+        const y2 = 200 - 130 * Math.sin(angle)
+        const line = createSvgElement('line', { x1: 200, y1: 200, x2: x2, y2: y2, stroke: '#3498db', 'stroke-width': 3 })
+        shapesGroup.appendChild(line)
+        gsap.fromTo(line, { scaleX: 0, scaleY: 0 }, { scaleX: 1, scaleY: 1, duration: 0.4, delay: i * 0.1, transformOrigin: '200px 200px' })
+      }
+    }
+    if (step >= 2) {
+      addText(labelsGroup, 200, 60, '单个小角：3个', { fill: '#e74c3c', size: 13, weight: 'bold' })
+      gsap.fromTo(labelsGroup.lastChild, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+    }
+    if (step >= 3) {
+      addText(labelsGroup, 200, 85, '2个小角组成：2个，3个小角组成：1个', { fill: '#f5a623', size: 13 })
+      gsap.fromTo(labelsGroup.lastChild, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+    }
+    if (step >= 4) {
+      addText(labelsGroup, 200, 110, '3 + 2 + 1 = 6（个）', { fill: '#2c3e50', size: 15, weight: 'bold' })
+      gsap.fromTo(labelsGroup.lastChild, { opacity: 0, scale: 0.5 }, { opacity: 1, scale: 1, duration: 0.6, transformOrigin: 'center' })
+    }
+    if (step >= props.steps.length) showAnswer(labelsGroup, 135)
+    return
+  }
+
+  if (isTri) {
+    // 三角形内画2条线
+    if (step >= 1) {
+      const tri = createSvgElement('polygon', { points: '200,60 80,200 320,200', fill: 'none', stroke: '#3498db', 'stroke-width': 3 })
+      shapesGroup.appendChild(tri)
+      gsap.fromTo(tri, { opacity: 0 }, { opacity: 1, duration: 0.6 })
+    }
+    if (step >= 2) {
+      const l1 = createSvgElement('line', { x1: 200, y1: 60, x2: 160, y2: 200, stroke: '#e74c3c', 'stroke-width': 2 })
+      const l2 = createSvgElement('line', { x1: 200, y1: 60, x2: 240, y2: 200, stroke: '#e74c3c', 'stroke-width': 2 })
+      shapesGroup.appendChild(l1)
+      shapesGroup.appendChild(l2)
+      gsap.fromTo([l1, l2], { scaleY: 0 }, { scaleY: 1, duration: 0.5, transformOrigin: 'top' })
+      addText(labelsGroup, 200, 30, '底边被分成3段', { fill: '#e74c3c', size: 13, weight: 'bold' })
+    }
+    if (step >= 3) {
+      addText(labelsGroup, 200, 225, '小三角形3个，2个组成2个，整体1个', { fill: '#f5a623', size: 13 })
+      gsap.fromTo(labelsGroup.lastChild, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+    }
+    if (step >= 4) {
+      addText(labelsGroup, 200, 245, '3 + 2 + 1 = 6（个）', { fill: '#2c3e50', size: 14, weight: 'bold' })
+      gsap.fromTo(labelsGroup.lastChild, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+    }
+    if (step >= props.steps.length) showAnswer(labelsGroup, 265)
+    return
+  }
+
+  if (isRect || isSq) {
+    // 2x2 方格
+    if (step >= 1) {
+      const grid = createSvgElement('g', {})
+      for (let r = 0; r < 3; r++) {
+        const line = createSvgElement('line', { x1: 120, y1: 60 + r * 50, x2: 280, y2: 60 + r * 50, stroke: '#3498db', 'stroke-width': 2 })
+        grid.appendChild(line)
+      }
+      for (let c = 0; c < 3; c++) {
+        const line = createSvgElement('line', { x1: 120 + c * 80, y1: 60, x2: 120 + c * 80, y2: 160, stroke: '#3498db', 'stroke-width': 2 })
+        grid.appendChild(line)
+      }
+      shapesGroup.appendChild(grid)
+      gsap.fromTo(grid, { opacity: 0, scale: 0.8 }, { opacity: 1, scale: 1, duration: 0.6, transformOrigin: 'center' })
+    }
+    if (step >= 2) {
+      // 高亮4个小格
+      for (let r = 0; r < 2; r++) {
+        for (let c = 0; c < 2; c++) {
+          const cell = createSvgElement('rect', { x: 120 + c * 80 + 2, y: 60 + r * 50 + 2, width: 76, height: 46, fill: '#f5a623', opacity: 0.4 })
+          shapesGroup.appendChild(cell)
+          gsap.fromTo(cell, { opacity: 0 }, { opacity: 0.4, duration: 0.3, delay: (r * 2 + c) * 0.1 })
+        }
+      }
+      addText(labelsGroup, 200, 195, isSq ? '小正方形：4个' : '小长方形：4个', { fill: '#e74c3c', size: 13, weight: 'bold' })
+      gsap.fromTo(labelsGroup.lastChild, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+    }
+    if (step >= 3) {
+      addText(labelsGroup, 200, 218, isSq ? '大正方形：1个' : '由2格组成4个，整体1个', { fill: '#f5a623', size: 13 })
+      gsap.fromTo(labelsGroup.lastChild, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+    }
+    if (step >= 4) {
+      const total = isSq ? '4 + 1 = 5（个）' : '4 + 4 + 1 = 9（个）'
+      addText(labelsGroup, 200, 240, total, { fill: '#2c3e50', size: 14, weight: 'bold' })
+      gsap.fromTo(labelsGroup.lastChild, { opacity: 0 }, { opacity: 1, duration: 0.5 })
+    }
+    if (step >= props.steps.length) showAnswer(labelsGroup, 260)
+    return
+  }
+}
+
 // 主渲染函数
 const renderStep = async () => {
   clearScene()
@@ -1107,6 +1969,24 @@ const renderStep = async () => {
     await renderChickenRabbitAdvanced(currentStep.value)
   } else if (props.animationType === 'chicken-rabbit-stamp') {
     await renderChickenRabbitStamp(currentStep.value)
+  } else if (props.animationType === 'period') {
+    await renderPeriod(currentStep.value)
+  } else if (props.animationType === 'unit-rate') {
+    await renderUnitRate(currentStep.value)
+  } else if (props.animationType === 'reverse') {
+    await renderReverse(currentStep.value)
+  } else if (props.animationType === 'profit-loss') {
+    await renderProfitLoss(currentStep.value)
+  } else if (props.animationType === 'overlap') {
+    await renderOverlap(currentStep.value)
+  } else if (props.animationType === 'substitution') {
+    await renderSubstitution(currentStep.value)
+  } else if (props.animationType === 'stairs') {
+    await renderStairs(currentStep.value)
+  } else if (props.animationType === 'average') {
+    await renderAverage(currentStep.value)
+  } else if (props.animationType === 'counting') {
+    await renderCounting(currentStep.value)
   }
 }
 
